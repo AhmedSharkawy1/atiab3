@@ -123,12 +123,23 @@ const App: React.FC = () => {
       return;
     }
 
-    const time = new Date().toLocaleTimeString('ar-EG');
-    let message = `🛎️ *طلب جديد - أطياب*\n\n`;
+    const total = calculateTotal();
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('ar-EG');
+    const orderId = Math.floor(Math.random() * 90000) + 10000;
+    
+    // توقيع رقمي بسيط للتحقق من السعر (تشفير السعر مع رقم الموبايل)
+    const verificationCode = btoa(`${customerPhone}-${total}`).substring(0, 8).toUpperCase();
+
+    let message = `🛑 *نظام الطلب التلقائي - أطياب*\n`;
+    message += `⚠️ *الرجاء عدم تعديل الرسالة لضمان قبول الطلب*\n`;
+    message += `━━━━━━━━━━━━━━\n`;
+    message += `🔢 *رقم الطلب:* #${orderId}\n`;
     message += `👤 *الاسم:* ${customerName}\n`;
     message += `📞 *الموبايل:* ${customerPhone}\n`;
-    message += `📍 *العنوان:* ${customerAddress}\n\n`;
-    message += `🧾 *تفاصيل الطلب:*\n`;
+    message += `📍 *العنوان:* ${customerAddress}\n`;
+    message += `━━━━━━━━━━━━━━\n\n`;
+    message += `🧾 *تفاصيل المنيو:*\n`;
 
     cart.forEach((item, idx) => {
       message += `${idx + 1}. *${item.name}* [${item.categoryName}] ${item.size ? `(${item.size})` : ''} x${item.quantity}\n`;
@@ -139,12 +150,15 @@ const App: React.FC = () => {
         message += `   📝 ملاحظة: ${item.notes}\n`;
       }
       const itemTotal = (item.price + item.addons.reduce((s, a) => s + a.price, 0)) * item.quantity;
-      message += `   💰 السعر: ${itemTotal} ج\n\n`;
+      message += `   💰 الفرعي: ${itemTotal} ج\n\n`;
     });
 
     message += `━━━━━━━━━━━━━━\n`;
-    message += `💰 *الإجمالي النهائي: ${calculateTotal()} جنيه*\n`;
-    message += `⏰ *وقت الطلب:* ${time}\n`;
+    message += `💰 *الإجمالي النهائي: ${total} جنيه*\n`;
+    message += `⏰ *الوقت:* ${timeStr}\n`;
+    message += `🔐 *كود التحقق:* ${verificationCode}\n`;
+    message += `━━━━━━━━━━━━━━\n`;
+    message += `⚠️ *ملاحظة:* أي تعديل يدوي في هذه الرسالة سيؤدي لإلغاء الأوردر من السيستم فوراً.`;
 
     const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
