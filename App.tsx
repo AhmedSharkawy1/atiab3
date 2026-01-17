@@ -40,7 +40,6 @@ const App: React.FC = () => {
   const [customerAddress, setCustomerAddress] = useState("");
 
   const navRef = useRef<HTMLDivElement>(null);
-  const isScrollingToRef = useRef(false);
 
   useEffect(() => {
     setCurrentUrl(window.location.href);
@@ -112,55 +111,57 @@ const App: React.FC = () => {
 
   const sendOrderToWhatsApp = () => {
     if (!customerName || !customerPhone || !customerAddress) {
-      alert("يرجى ملء كافة بيانات التوصيل");
+      alert("يرجى ملء كافة بيانات التوصيل أولاً");
       return;
     }
 
     const total = calculateTotal();
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('ar-EG');
     const orderId = Math.floor(Math.random() * 90000) + 10000;
     
-    // نظام تشفير وحماية للرسالة لضمان عدم التلاعب
-    const salt = "ATYAB_SECURE_77";
-    const rawData = `${total}-${customerPhone.slice(-4)}-${orderId}`;
-    const hash = btoa(rawData).substring(0, 10).toUpperCase();
+    // كود حماية بسيط وسريع للتحقق من السعر
+    const checksum = (total * 3) + (parseInt(customerPhone.slice(-2)) || 0);
+    const securityCode = `SEC-${orderId}-${checksum}`;
 
-    let message = `🛑 *نظام الطلبات الرقمي - أطياب*\n`;
-    message += `🚨 *تنبيه: أي تعديل في الرسالة سيؤدي لإلغاء الأوردر فورا*\n`;
+    let message = `🛑 *فاتورة طلب أطياب الرقمية*\n`;
+    message += `🚨 *ممنوع تعديل الرسالة لضمان قبول الطلب*\n`;
     message += `━━━━━━━━━━━━━━\n`;
     message += `🔢 *أوردر رقم:* #${orderId}\n`;
-    message += `👤 *الاسم:* ${customerName}\n`;
+    message += `👤 *العميل:* ${customerName}\n`;
     message += `📞 *الموبايل:* ${customerPhone}\n`;
     message += `📍 *العنوان:* ${customerAddress}\n`;
     message += `━━━━━━━━━━━━━━\n\n`;
-    message += `🧾 *تفاصيل الطلب:*\n`;
+    message += `🧾 *الأصناف المطلوبة:*\n`;
 
     cart.forEach((item, idx) => {
-      const itemBase = item.price;
-      const addonsSum = item.addons.reduce((s, a) => s + a.price, 0);
-      const rowTotal = (itemBase + addonsSum) * item.quantity;
+      const singlePrice = item.price + item.addons.reduce((s, a) => s + a.price, 0);
+      const rowTotal = singlePrice * item.quantity;
       
-      message += `${idx + 1}. *${item.name}* x${item.quantity} ${item.size ? `(${item.size})` : ''}\n`;
+      message += `${idx + 1}. *${item.name}* x${item.quantity}\n`;
+      if (item.size) message += `   ▫️ الحجم: ${item.size}\n`;
       if (item.addons.length > 0) {
-        message += `   ➕ إضافات: ${item.addons.map(a => `${a.name} (${a.price} ج)`).join(' + ')}\n`;
+        message += `   ➕ إضافات: ${item.addons.map(a => `${a.name} (${a.price}ج)`).join(' + ')}\n`;
       }
       if (item.notes) message += `   📝 ملاحظة: ${item.notes}\n`;
-      message += `   💰 السعر: ${rowTotal} ج\n\n`;
+      message += `   💰 السعر: ${rowTotal} جنيه\n\n`;
     });
 
     message += `━━━━━━━━━━━━━━\n`;
     message += `💰 *الإجمالي النهائي: ${total} جنيه*\n`;
-    message += `⏰ *وقت الإرسال:* ${timeStr}\n`;
-    message += `🔐 *كود أمان النظام:* ${hash}\n`;
+    message += `🔐 *كود أمان الفاتورة:* ${securityCode}\n`;
     message += `━━━━━━━━━━━━━━\n`;
-    message += `⚠️ *ممنوع تعديل الأسعار أو الكود يدوياً*`;
+    message += `⚠️ *ممنوع تعديل أي رقم في الرسالة*`;
 
-    const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
-    setIsCheckoutOpen(false);
-    setCart([]);
+    // استخدام الرابط المباشر api.whatsapp.com وتغيير window.open لـ location.href لضمان العمل على الموبايل
+    const url = `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}`;
+    
     triggerHaptic(50);
+    window.location.href = url;
+    
+    // تنظيف السلة بعد التحويل
+    setTimeout(() => {
+      setCart([]);
+      setIsCheckoutOpen(false);
+    }, 1000);
   };
 
   const handleNavClick = (e: React.MouseEvent, id: string) => {
@@ -194,7 +195,7 @@ const App: React.FC = () => {
       
       {/* Category Nav Bar */}
       <nav className="sticky top-0 z-40 bg-white/95 dark:bg-[#050505]/95 backdrop-blur-xl border-b border-zinc-200 dark:border-white/10 py-3 shadow-md">
-        <div ref={navRef} className="flex gap-2 overflow-x-auto no-scrollbar px-5 py-1 max-w-2xl mx-auto">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar px-5 py-1 max-w-2xl mx-auto">
           {navItems.map((item) => (
             <button
               key={item.id}
@@ -212,7 +213,6 @@ const App: React.FC = () => {
       </nav>
 
       <main className="max-w-2xl mx-auto px-5 py-8 pb-48">
-        {/* Hero Card */}
         <div className="mb-12 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 p-10 relative overflow-hidden text-right shadow-2xl reveal-item">
           <div className="relative z-10">
             <h2 className="text-5xl font-black text-zinc-900 dark:text-white mb-2 leading-none italic uppercase tracking-tighter">ATYAB</h2>
@@ -228,7 +228,6 @@ const App: React.FC = () => {
           <MenuSection key={section.id} section={section} onItemSelect={(item, sec) => { triggerHaptic(); setSelectedItem({ item, section: sec }); resetItemStates(); }} />
         ))}
 
-        {/* Additions Section View */}
         <div id={PIZZA_FATAYER_ADDITIONS.id} className="scroll-mt-[200px] mb-10 p-8 bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-zinc-200 dark:border-white/10 text-right reveal-item shadow-lg">
           <h3 className="text-2xl font-black mb-4 flex items-center gap-3">
             <span className="animate-emoji">✨</span> {PIZZA_FATAYER_ADDITIONS.title}
@@ -247,7 +246,6 @@ const App: React.FC = () => {
           <MenuSection key={section.id} section={section} onItemSelect={(item, sec) => { triggerHaptic(); setSelectedItem({ item, section: sec }); resetItemStates(); }} />
         ))}
 
-        {/* Footer with QR */}
         <footer className="mt-24 pb-12 flex flex-col items-center gap-8 reveal-item">
             <div className="w-full bg-white dark:bg-zinc-900 rounded-[3rem] p-12 shadow-2xl border border-zinc-200 dark:border-white/10 flex flex-col items-center text-center">
                <AtyabLogo />
@@ -280,7 +278,6 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Size Selector */}
             {selectedItem.item.prices.length > 1 && (
               <div className="mb-6">
                 <p className="text-right font-black mb-3 text-sm text-zinc-400">اختر الحجم:</p>
@@ -299,7 +296,6 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* Addons List */}
             {additionsGroup && (
               <div className="mb-6">
                 <p className="text-right font-black mb-3 text-sm text-zinc-400">إضافات مميزة (تظهر في الفاتورة):</p>
@@ -378,7 +374,6 @@ const App: React.FC = () => {
                           {item.size && <span className="text-[11px] text-zinc-400 font-bold block">{item.size}</span>}
                         </div>
                       </div>
-                      {/* عرض الإضافات تحت كل صنف بأسعارها */}
                       {item.addons.map((a, i) => (
                         <span key={i} className="text-right text-[11px] text-yellow-600 font-bold mt-1 block">
                           + {a.name} ({a.price} جنيه)
@@ -393,7 +388,10 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <button onClick={sendOrderToWhatsApp} className="w-full bg-[#25D366] text-white font-black py-5 rounded-[2.5rem] text-2xl shadow-xl active:scale-95 flex items-center justify-center gap-4">
+              <button 
+                onClick={sendOrderToWhatsApp} 
+                className="w-full bg-[#25D366] text-white font-black py-5 rounded-[2.5rem] text-2xl shadow-xl active:scale-95 flex items-center justify-center gap-4"
+              >
                 <span>إرسال الطلب (واتساب)</span>
                 <svg className="w-8 h-8 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" /></svg>
               </button>
@@ -422,7 +420,7 @@ const App: React.FC = () => {
             </button>
           )}
 
-          <a href={`https://wa.me/${WHATSAPP_NUMBER}`} className="flex-1 flex flex-col items-center py-2 text-[#25D366]">
+          <a href={`https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}`} className="flex-1 flex flex-col items-center py-2 text-[#25D366]">
             <span className="text-2xl animate-emoji">💬</span>
             <span className="text-[10px] font-black">واتساب</span>
           </a>
