@@ -218,6 +218,7 @@ const App: React.FC = () => {
     message += `🔢 *كود الأمان:* ${securityHash}\n`;
     message += `🔢 *أوردر رقم:* #${orderId}\n`;
     message += `👤 *العميل:* ${customerName}\n`;
+    message += `📱 *رقم الموبايل:* ${customerPhone}\n`;
     message += `📍 *العنوان:* ${customerAddress}\n`;
     message += `━━━━━━━━━━━━━━\n\n`;
 
@@ -501,7 +502,7 @@ const App: React.FC = () => {
 
                 {/* Total Section */}
                 <div className="mt-8 pt-6 border-t-2 border-dotted border-zinc-200 dark:border-white/20">
-                  <div className="flex justify-between items-center flex-row-reverse">
+                  <div className="flex justify-between items-center mb-8 flex-row-reverse border-b border-zinc-200 dark:border-white/10 pb-4">
                     <span className="font-black text-zinc-900 dark:text-white text-sm tracking-tight">إجمالي الفاتورة</span>
                     <div className="flex items-baseline gap-1">
                        <span className="text-3xl font-black text-yellow-600 tabular-nums leading-none">{calculateTotal()}</span>
