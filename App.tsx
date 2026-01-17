@@ -283,39 +283,61 @@ const App: React.FC = () => {
           <MenuSection key={section.id} section={section} onItemSelect={(item, sec) => { triggerHaptic(); setSelectedItem({ item, section: sec }); resetItemStates(); }} />
         ))}
 
-        <footer className="mt-16 pb-12 flex flex-col items-center gap-6 reveal-item">
-            <div className="w-full bg-white dark:bg-zinc-900 rounded-[2rem] p-8 shadow-lg border border-zinc-200 dark:border-white/10 flex flex-col items-center gap-5 text-center">
-               <AtyabLogo />
-               <div className="relative p-3 bg-white rounded-2xl border-2 border-zinc-100 shadow-inner">
-                  <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(currentUrl)}`} alt="QR Code" className="w-24 h-24" />
+        <footer className="mt-16 pb-12 flex flex-col items-center gap-10 reveal-item">
+            <div className="w-full bg-white dark:bg-zinc-900 rounded-[2.5rem] p-10 shadow-xl border border-zinc-200 dark:border-white/10 flex flex-col items-center gap-8 text-center">
+               <AtyabLogo size="w-20 h-20" />
+               
+               <div className="flex flex-col items-center gap-4">
+                  <div className="relative p-4 bg-white rounded-[2rem] border-4 border-zinc-50 dark:border-zinc-800 shadow-2xl">
+                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(currentUrl)}`} alt="QR Code" className="w-44 h-44 md:w-52 md:h-52" />
+                  </div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">امسح الكود لمشاركة المنيو</p>
                </div>
+
+               <div className="w-full border-t border-zinc-100 dark:border-white/5 pt-8 space-y-4">
+                  <a 
+                    href="https://www.google.com/maps/search/R7XC+FC7+برج+أنس+الوجود" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-center group transition-transform active:scale-95"
+                  >
+                    <span className="text-3xl mb-2 animate-emoji">📍</span>
+                    <h4 className="text-xl font-black text-zinc-900 dark:text-white group-hover:text-yellow-600 transition-colors leading-none">موقعنا على الخريطة</h4>
+                    <p className="text-sm font-bold text-zinc-500 mt-2">برج أنس الوجود - البدرشين</p>
+                  </a>
+               </div>
+            </div>
+
+            <div className="flex flex-col items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity text-center px-6">
+               <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">تصميم وتنفيذ مهندس / احمد النقيب</p>
+               <a href="tel:01092621367" className="text-[10px] font-black text-yellow-600 dark:text-yellow-500 tracking-wider tabular-nums">للتواصل 01092621367</a>
             </div>
         </footer>
       </main>
 
-      {/* Item Selection Modal (Optimized & Compact) */}
+      {/* Item Selection Modal (Maximum External Margins) */}
       {selectedItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4" onClick={() => setSelectedItem(null)}>
-          <div className="w-full max-w-[340px] bg-white dark:bg-zinc-900 rounded-[2rem] overflow-hidden shadow-2xl animate-slide-up border border-white/10 flex flex-col max-h-[82vh]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md px-8 py-24 md:py-32" onClick={() => setSelectedItem(null)}>
+          <div className="w-full max-w-[340px] bg-white dark:bg-zinc-900 rounded-[2.5rem] overflow-hidden shadow-2xl animate-slide-up border border-white/10 flex flex-col max-h-full" onClick={e => e.stopPropagation()}>
             
-            {/* Header - Compact */}
-            <div className="relative px-6 pt-7 pb-4 border-b border-zinc-100 dark:border-white/5 text-right">
-              <button onClick={() => setSelectedItem(null)} className="absolute left-6 top-7 w-8 h-8 bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white rounded-full font-black text-sm transition-all active:scale-90 flex items-center justify-center shadow-sm">✕</button>
-              <div className="space-y-0.5">
-                <span className="text-yellow-600 text-[8px] font-black uppercase tracking-widest">{selectedItem.section.title}</span>
+            {/* Header */}
+            <div className="relative px-8 pt-10 pb-6 border-b border-zinc-100 dark:border-white/5 text-right">
+              <button onClick={() => setSelectedItem(null)} className="absolute left-8 top-10 w-8 h-8 bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white rounded-full font-black text-sm transition-all active:scale-90 flex items-center justify-center shadow-sm">✕</button>
+              <div className="space-y-1">
+                <span className="text-yellow-600 text-[9px] font-black uppercase tracking-widest">{selectedItem.section.title}</span>
                 <h3 className="text-xl font-black text-zinc-900 dark:text-white leading-tight italic uppercase">{selectedItem.item.name}</h3>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-7 no-scrollbar">
+            <div className="flex-1 overflow-y-auto px-8 py-8 space-y-10 no-scrollbar">
               {/* Sizes */}
               {selectedItem.item.prices.length > 1 && (
-                <div className="space-y-3">
-                  <p className="font-black text-[9px] text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 flex-row-reverse"><span>📐</span> حدد الحجم</p>
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-4">
+                  <p className="font-black text-[9px] text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 flex-row-reverse">حدد الحجم</p>
+                  <div className="grid grid-cols-2 gap-3">
                     {selectedItem.item.prices.map((p, i) => (
                       <button key={i} onClick={() => { triggerHaptic(); setSelectedSizeIdx(i); }}
-                        className={`py-3 px-2 rounded-xl font-black border-2 transition-all flex flex-col items-center gap-0.5 ${selectedSizeIdx === i ? 'bg-yellow-600 border-yellow-600 text-black shadow-md shadow-yellow-600/20' : 'bg-zinc-50 dark:bg-white/[0.03] border-zinc-100 dark:border-white/5 text-zinc-500'}`}
+                        className={`py-4 px-2 rounded-xl font-black border-2 transition-all flex flex-col items-center gap-1 ${selectedSizeIdx === i ? 'bg-yellow-600 border-yellow-600 text-black shadow-md shadow-yellow-600/20' : 'bg-zinc-50 dark:bg-white/[0.03] border-zinc-100 dark:border-white/5 text-zinc-500'}`}
                       >
                         <span className="opacity-60 text-[7px] font-black uppercase">{selectedItem.item.labels?.[i] || selectedItem.section.subtitles?.[i]}</span>
                         <span className="text-lg tabular-nums leading-none font-black">{p}<span className="text-[9px] mr-1">ج</span></span>
@@ -325,25 +347,28 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {/* Add-ons with Quantity Counter */}
+              {/* Add-ons - Updated Appearance & Removed "الحبة" */}
               {additionsGroup && (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <p className="font-black text-[9px] text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 flex-row-reverse"><span>✨</span> الإضافات</p>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-3">
                     {additionsGroup.items.map((add, i) => {
                       const price = parseInt(add.prices[0]) || 0;
                       const currentAddon = selectedAddons.find(a => a.name === add.name);
                       const qty = currentAddon?.quantity || 0;
                       return (
-                        <div key={i} className={`p-2.5 rounded-xl border-2 flex items-center justify-between transition-all ${qty > 0 ? 'bg-yellow-600/10 border-yellow-600/40 text-yellow-700 dark:text-yellow-500' : 'bg-zinc-50 dark:bg-white/[0.02] border-zinc-100 dark:border-white/5 text-zinc-500'}`}>
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => updateAddonQty({ name: add.name, price }, 1)} className="w-7 h-7 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 rounded-lg flex items-center justify-center font-black text-lg active:scale-90 shadow-sm">+</button>
-                            <span className={`min-w-[18px] text-center tabular-nums font-black text-sm ${qty > 0 ? 'opacity-100' : 'opacity-20'}`}>{qty}</span>
-                            <button onClick={() => updateAddonQty({ name: add.name, price }, -1)} className="w-7 h-7 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 rounded-lg flex items-center justify-center font-black text-lg active:scale-90 shadow-sm">-</button>
+                        <div key={i} className={`group flex items-center justify-between transition-all p-1.5 rounded-2xl border-2 ${qty > 0 ? 'bg-yellow-600/5 border-yellow-600/40 shadow-sm' : 'bg-zinc-50 dark:bg-white/[0.01] border-zinc-100 dark:border-white/5'}`}>
+                          {/* Controls */}
+                          <div className="flex items-center bg-white dark:bg-zinc-800 rounded-xl p-0.5 shadow-sm border border-zinc-100 dark:border-white/5">
+                            <button onClick={() => updateAddonQty({ name: add.name, price }, 1)} className="w-8 h-8 flex items-center justify-center font-black text-lg text-yellow-600 active:scale-90">+</button>
+                            <span className={`w-8 text-center tabular-nums font-black text-sm ${qty > 0 ? 'text-zinc-900 dark:text-white' : 'text-zinc-300 dark:text-zinc-600'}`}>{qty}</span>
+                            <button onClick={() => updateAddonQty({ name: add.name, price }, -1)} className="w-8 h-8 flex items-center justify-center font-black text-lg text-zinc-400 active:scale-90">-</button>
                           </div>
-                          <div className="text-right flex-1 pr-3">
-                            <span className="text-[11px] font-black leading-tight block">{add.name}</span>
-                            <span className="text-[8px] font-bold opacity-60">+{price}ج / الحبة</span>
+                          
+                          {/* Info - Text "الحبة" removed */}
+                          <div className="text-right flex-1 pr-4">
+                            <span className={`text-[11px] font-black block transition-colors ${qty > 0 ? 'text-yellow-600' : 'text-zinc-700 dark:text-zinc-300'}`}>{add.name}</span>
+                            <span className="text-[9px] font-black text-zinc-400">+{price} ج</span>
                           </div>
                         </div>
                       );
@@ -353,23 +378,23 @@ const App: React.FC = () => {
               )}
 
               {/* Notes */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <p className="font-black text-[9px] text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 flex-row-reverse"><span>📝</span> الملاحظات</p>
                 <textarea value={itemNotes} onChange={e => setItemNotes(e.target.value)} placeholder="مثلاً: حار زيادة..."
-                  className="w-full bg-zinc-50 dark:bg-white/[0.03] border-2 border-zinc-100 dark:border-white/5 rounded-xl p-4 text-right font-bold text-[11px] h-20 outline-none focus:border-yellow-600 transition-all resize-none shadow-inner"
+                  className="w-full bg-zinc-50 dark:bg-white/[0.03] border-2 border-zinc-100 dark:border-white/5 rounded-xl p-5 text-right font-bold text-[11px] h-24 outline-none focus:border-yellow-600 transition-all resize-none shadow-inner"
                 />
               </div>
             </div>
 
-            {/* Bottom Footer - Compact */}
-            <div className="p-5 bg-zinc-50 dark:bg-white/[0.05] border-t border-zinc-100 dark:border-white/5">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center bg-white dark:bg-zinc-800 rounded-lg p-0.5 gap-1.5 border border-zinc-100 dark:border-white/10 shadow-sm">
-                  <button onClick={() => { triggerHaptic(); setItemQuantity(q => q + 1); }} className="w-8 h-8 bg-zinc-50 dark:bg-zinc-700 rounded-md font-black text-lg active:scale-90 shadow-sm">+</button>
-                  <span className="font-black text-xl min-w-[24px] text-center tabular-nums text-zinc-900 dark:text-white leading-none">{itemQuantity}</span>
-                  <button onClick={() => { triggerHaptic(); setItemQuantity(q => Math.max(1, q - 1)); }} className="w-8 h-8 bg-zinc-50 dark:bg-zinc-700 rounded-md font-black text-lg active:scale-90 shadow-sm">-</button>
+            {/* Bottom Footer */}
+            <div className="p-8 bg-zinc-50 dark:bg-white/[0.05] border-t border-zinc-100 dark:border-white/5">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center bg-white dark:bg-zinc-800 rounded-lg p-1 gap-2 border border-zinc-100 dark:border-white/10 shadow-sm">
+                  <button onClick={() => { triggerHaptic(); setItemQuantity(q => q + 1); }} className="w-9 h-9 bg-zinc-50 dark:bg-zinc-700 rounded-md font-black text-lg active:scale-90 shadow-sm">+</button>
+                  <span className="font-black text-2xl min-w-[30px] text-center tabular-nums text-zinc-900 dark:text-white leading-none">{itemQuantity}</span>
+                  <button onClick={() => { triggerHaptic(); setItemQuantity(q => Math.max(1, q - 1)); }} className="w-9 h-9 bg-zinc-50 dark:bg-zinc-700 rounded-md font-black text-lg active:scale-90 shadow-sm">-</button>
                 </div>
-                <button onClick={addToCart} className="flex-1 bg-yellow-600 hover:bg-yellow-500 text-black font-black py-3 rounded-lg text-base shadow-md active:scale-[0.97] transition-all">
+                <button onClick={addToCart} className="flex-1 bg-yellow-600 hover:bg-yellow-500 text-black font-black py-4 rounded-xl text-lg shadow-md active:scale-[0.97] transition-all">
                   إضافة
                 </button>
               </div>
@@ -378,56 +403,56 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Checkout Modal (Receipt View) */}
+      {/* Checkout Modal (Maximum External Margins) */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-lg p-4" onClick={() => setIsCheckoutOpen(false)}>
-          <div className="w-full max-w-[340px] bg-white dark:bg-zinc-900 rounded-[2rem] overflow-hidden shadow-2xl animate-slide-up relative flex flex-col max-h-[85vh] border border-white/10" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-lg px-8 py-24 md:py-32" onClick={() => setIsCheckoutOpen(false)}>
+          <div className="w-full max-w-[340px] bg-white dark:bg-zinc-900 rounded-[2.5rem] overflow-hidden shadow-2xl animate-slide-up relative flex flex-col max-h-full border border-white/10" onClick={e => e.stopPropagation()}>
             
-            {/* Header - Invoice */}
-            <div className="p-6 pb-3 border-b-2 border-dashed border-zinc-100 dark:border-white/5 text-right flex justify-between items-center flex-row-reverse relative">
+            {/* Header */}
+            <div className="p-10 pb-6 border-b-2 border-dashed border-zinc-100 dark:border-white/5 text-right flex justify-between items-center flex-row-reverse relative">
               <div className="flex flex-col">
                 <h3 className="text-xl font-black text-zinc-900 dark:text-white italic tracking-tighter uppercase leading-none">ORDER</h3>
-                <p className="text-yellow-600 text-[9px] font-black uppercase tracking-[0.3em] mt-0.5">تأكيد طلب أطياب</p>
+                <p className="text-yellow-600 text-[9px] font-black uppercase tracking-[0.3em] mt-1">تأكيد طلب أطياب</p>
               </div>
-              <button onClick={() => setIsCheckoutOpen(false)} className="w-8 h-8 bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white rounded-full font-black text-sm active:scale-90 transition-all flex items-center justify-center shadow-md">✕</button>
+              <button onClick={() => setIsCheckoutOpen(false)} className="w-9 h-9 bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white rounded-full font-black text-sm active:scale-90 transition-all flex items-center justify-center shadow-md">✕</button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-7 no-scrollbar">
+            <div className="flex-1 overflow-y-auto p-10 space-y-10 no-scrollbar">
               {/* Customer Form */}
-              <div className="space-y-3">
-                <p className="font-black text-[8px] text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 flex-row-reverse mb-0.5"><span>🛵</span> العنوان</p>
-                <div className="space-y-2">
+              <div className="space-y-4">
+                <p className="font-black text-[8px] text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 flex-row-reverse mb-1"><span>🛵</span> العنوان</p>
+                <div className="space-y-3">
                   <input type="text" placeholder="الاسم" value={customerName} onChange={e => setCustomerName(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-white/[0.03] border-2 border-zinc-100 dark:border-white/5 rounded-xl py-2.5 px-4 text-right font-bold text-xs outline-none focus:border-yellow-600 transition-all shadow-sm"
+                    className="w-full bg-zinc-50 dark:bg-white/[0.03] border-2 border-zinc-100 dark:border-white/5 rounded-xl py-3 px-5 text-right font-bold text-xs outline-none focus:border-yellow-600 transition-all shadow-sm"
                   />
                   <input type="tel" placeholder="رقم الموبايل" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-white/[0.03] border-2 border-zinc-100 dark:border-white/5 rounded-xl py-2.5 px-4 text-right font-bold text-xs outline-none focus:border-yellow-600 transition-all shadow-sm"
+                    className="w-full bg-zinc-50 dark:bg-white/[0.03] border-2 border-zinc-100 dark:border-white/5 rounded-xl py-3 px-5 text-right font-bold text-xs outline-none focus:border-yellow-600 transition-all shadow-sm"
                   />
                   <textarea placeholder="العنوان بالتحديد..." value={customerAddress} onChange={e => setCustomerAddress(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-white/[0.03] border-2 border-zinc-100 dark:border-white/5 rounded-xl py-2.5 px-4 text-right font-bold text-xs outline-none focus:border-yellow-600 h-16 transition-all shadow-sm resize-none"
+                    className="w-full bg-zinc-50 dark:bg-white/[0.03] border-2 border-zinc-100 dark:border-white/5 rounded-xl py-3 px-5 text-right font-bold text-xs outline-none focus:border-yellow-600 h-20 transition-all shadow-sm resize-none"
                   />
                 </div>
               </div>
 
-              {/* Basket Items List */}
-              <div className="bg-zinc-50 dark:bg-white/[0.03] rounded-[1.5rem] p-5 border-2 border-dashed border-zinc-200 dark:border-white/10 relative shadow-inner">
-                <div className="flex justify-between items-center mb-5 flex-row-reverse border-b border-zinc-200 dark:border-white/10 pb-3">
+              {/* Basket Items List Box */}
+              <div className="bg-zinc-50 dark:bg-white/[0.03] rounded-[1.5rem] p-8 border-2 border-dashed border-zinc-200 dark:border-white/10 relative shadow-inner">
+                <div className="flex justify-between items-center mb-8 flex-row-reverse border-b border-zinc-200 dark:border-white/10 pb-4">
                    <p className="font-black text-[9px] text-zinc-400 uppercase tracking-widest">السلة</p>
                    <span className="text-lg">📋</span>
                 </div>
                 
-                <div className="space-y-6">
+                <div className="space-y-8">
                   {cart.map((item) => (
-                    <div key={item.id} className="flex flex-col gap-2 relative border-b last:border-0 border-zinc-100 dark:border-white/5 pb-4 last:pb-0">
+                    <div key={item.id} className="flex flex-col gap-3 relative border-b last:border-0 border-zinc-100 dark:border-white/5 pb-5 last:pb-0">
                       <div className="flex justify-between items-start">
                         <div className="flex items-center gap-2">
-                          <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white rounded-md text-[8px] transition-all flex items-center justify-center">✕</button>
+                          <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white rounded-md text-[8px] transition-all flex items-center justify-center">✕</button>
                           <span className="font-black text-base tabular-nums text-yellow-600">
                             {(item.price + item.addons.reduce((s,a)=>s+(a.price * a.quantity),0)) * item.quantity}ج
                           </span>
                         </div>
-                        <div className="text-right flex-1 pr-2">
-                           <span className="text-[7px] font-black uppercase bg-zinc-200 dark:bg-zinc-800 px-1 py-0.5 rounded w-fit mb-0.5">{item.categoryName}</span>
+                        <div className="text-right flex-1 pr-3">
+                           <span className="text-[7px] font-black uppercase bg-zinc-200 dark:bg-zinc-800 px-1.5 py-0.5 rounded w-fit mb-1">{item.categoryName}</span>
                            <h4 className="font-black text-xs text-zinc-800 dark:text-zinc-100 leading-tight">
                              {item.name} <span className="text-yellow-600 ml-1">x{item.quantity}</span>
                            </h4>
@@ -451,7 +476,7 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Total Section */}
-                <div className="mt-6 pt-5 border-t-2 border-dotted border-zinc-200 dark:border-white/20">
+                <div className="mt-8 pt-6 border-t-2 border-dotted border-zinc-200 dark:border-white/20">
                   <div className="flex justify-between items-center flex-row-reverse">
                     <span className="font-black text-zinc-900 dark:text-white text-sm tracking-tight">إجمالي الفاتورة</span>
                     <div className="flex items-baseline gap-1">
@@ -463,12 +488,12 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Bottom Button */}
-            <div className="p-6 bg-white dark:bg-zinc-900 border-t-2 border-zinc-100 dark:border-white/5">
+            {/* Bottom Button Area */}
+            <div className="p-10 bg-white dark:bg-zinc-900 border-t-2 border-zinc-100 dark:border-white/5">
               <button 
                 disabled={isSending}
                 onClick={sendOrderToWhatsApp} 
-                className={`w-full ${isSending ? 'bg-zinc-400' : 'bg-[#25D366] shadow-lg'} text-white font-black py-4 rounded-xl text-lg active:scale-[0.98] flex items-center justify-center gap-3 transition-all`}
+                className={`w-full ${isSending ? 'bg-zinc-400' : 'bg-[#25D366] shadow-lg'} text-white font-black py-5 rounded-xl text-lg active:scale-[0.98] flex items-center justify-center gap-3 transition-all`}
               >
                 <span>{isSending ? 'جاري التحويل...' : 'تأكيد عبر واتساب'}</span>
               </button>
