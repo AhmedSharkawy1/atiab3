@@ -14,6 +14,12 @@ const AtyabLogo = ({ size = "w-16 h-16" }: { size?: string }) => (
   </div>
 );
 
+const MenuIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M9 6H20M9 12H20M9 18H20M5 6V6.01M5 12V12.01M5 18V18.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
 const App: React.FC = () => {
   const [isDark, setIsDark] = useState<boolean>(() => {
     const saved = localStorage.getItem('theme');
@@ -43,7 +49,8 @@ const App: React.FC = () => {
   const navRef = useRef<HTMLDivElement>(null);
   const isManualScrolling = useRef(false);
 
-  const navItems = [...MENU_DATA.slice(0, 4), PIZZA_FATAYER_ADDITIONS, ...MENU_DATA.slice(4, 8), CREPE_ADDITIONS];
+  // الأقسام الظاهرة فقط (بدون الإضافات) كما تم ترتيبها في MENU_DATA
+  const navItems = MENU_DATA;
 
   useEffect(() => {
     setCurrentUrl(window.location.href);
@@ -65,6 +72,7 @@ const App: React.FC = () => {
     };
 
     const observerCallback = (entries: IntersectionObserverEntry[]) => {
+      // منع التحديث التلقائي أثناء التنقل اليدوي
       if (isManualScrolling.current) return;
       entries.forEach((entry) => {
         if (entry.isIntersecting) setActiveSection(entry.target.id);
@@ -101,14 +109,30 @@ const App: React.FC = () => {
 
   const handleNavClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
+    triggerHaptic(10);
+    
+    // إغلاق القوائم الجانبية فوراً
+    setShowCategoriesMenu(false);
+    setShowBottomCallMenu(false);
+
     const target = document.getElementById(id);
     if (target) {
       isManualScrolling.current = true;
-      setActiveSection(id);
-      const offsetPosition = target.getBoundingClientRect().top + window.pageYOffset - 170;
-      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
-      setShowCategoriesMenu(false);
-      setTimeout(() => { isManualScrolling.current = false; }, 800);
+      setActiveSection(id); // تحديث فوري للحالة النشطة
+      
+      const offset = 170; // ضبط المسافة العلوية لضمان عدم تداخل الهيدر مع القسم
+      const elementPosition = target.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - offset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'auto' // 'auto' للانتقال اللحظي الفوري كما طلبت
+      });
+
+      // السماح للمراقب بالعمل مرة أخرى بعد فترة قصيرة
+      setTimeout(() => {
+        isManualScrolling.current = false;
+      }, 100);
     }
   };
 
@@ -315,7 +339,7 @@ const App: React.FC = () => {
         </footer>
       </main>
 
-      {/* Item Selection Modal (Maximum External Margins) */}
+      {/* Item Selection Modal */}
       {selectedItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md px-8 py-24 md:py-32" onClick={() => setSelectedItem(null)}>
           <div className="w-full max-w-[340px] bg-white dark:bg-zinc-900 rounded-[2.5rem] overflow-hidden shadow-2xl animate-slide-up border border-white/10 flex flex-col max-h-full" onClick={e => e.stopPropagation()}>
@@ -347,7 +371,7 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {/* Add-ons - Updated Appearance & Removed "الحبة" */}
+              {/* Add-ons */}
               {additionsGroup && (
                 <div className="space-y-4">
                   <p className="font-black text-[9px] text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 flex-row-reverse"><span>✨</span> الإضافات</p>
@@ -365,7 +389,7 @@ const App: React.FC = () => {
                             <button onClick={() => updateAddonQty({ name: add.name, price }, -1)} className="w-8 h-8 flex items-center justify-center font-black text-lg text-zinc-400 active:scale-90">-</button>
                           </div>
                           
-                          {/* Info - Text "الحبة" removed */}
+                          {/* Info */}
                           <div className="text-right flex-1 pr-4">
                             <span className={`text-[11px] font-black block transition-colors ${qty > 0 ? 'text-yellow-600' : 'text-zinc-700 dark:text-zinc-300'}`}>{add.name}</span>
                             <span className="text-[9px] font-black text-zinc-400">+{price} ج</span>
@@ -403,7 +427,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Checkout Modal (Maximum External Margins) */}
+      {/* Checkout Modal */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-lg px-8 py-24 md:py-32" onClick={() => setIsCheckoutOpen(false)}>
           <div className="w-full max-w-[340px] bg-white dark:bg-zinc-900 rounded-[2.5rem] overflow-hidden shadow-2xl animate-slide-up relative flex flex-col max-h-full border border-white/10" onClick={e => e.stopPropagation()}>
@@ -438,7 +462,7 @@ const App: React.FC = () => {
               <div className="bg-zinc-50 dark:bg-white/[0.03] rounded-[1.5rem] p-8 border-2 border-dashed border-zinc-200 dark:border-white/10 relative shadow-inner">
                 <div className="flex justify-between items-center mb-8 flex-row-reverse border-b border-zinc-200 dark:border-white/10 pb-4">
                    <p className="font-black text-[9px] text-zinc-400 uppercase tracking-widest">السلة</p>
-                   <span className="text-lg">📋</span>
+                   <MenuIcon className="w-5 h-5 opacity-40" />
                 </div>
                 
                 <div className="space-y-8">
@@ -525,7 +549,9 @@ const App: React.FC = () => {
           )}
 
           <a href={`https://wa.me/${WHATSAPP_NUMBER}`} className="flex-1 flex flex-col items-center py-2 text-[#25D366] active:scale-90 transition-transform">
-            <span className="text-xl animate-emoji">💬</span>
+            <svg className="w-6 h-6 fill-current animate-emoji" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+            </svg>
             <span className="text-[8px] font-black text-zinc-400 mt-0.5">واتساب</span>
           </a>
           <button onClick={() => { setShowBottomCallMenu(!showBottomCallMenu); setShowCategoriesMenu(false); }} className={`flex-1 flex flex-col items-center py-2 active:scale-90 transition-all ${showBottomCallMenu ? 'text-yellow-600' : 'text-zinc-500'}`}>
@@ -540,7 +566,7 @@ const App: React.FC = () => {
             <span className="text-[8px] font-black text-zinc-400 mt-0.5">الموقع</span>
           </a>
           <button onClick={() => { setShowCategoriesMenu(!showCategoriesMenu); setShowBottomCallMenu(false); }} className={`flex-1 flex flex-col items-center py-2 active:scale-90 transition-all ${showCategoriesMenu ? 'text-yellow-600' : 'text-zinc-500'}`}>
-            <span className="text-xl animate-emoji">📋</span>
+            <MenuIcon className="w-6 h-6 animate-emoji" />
             <span className="text-[8px] font-black text-zinc-400 mt-0.5">المنيو</span>
           </button>
 
@@ -562,7 +588,7 @@ const App: React.FC = () => {
             <div className="absolute bottom-[calc(100%+1.5rem)] left-0 right-0 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-[2rem] shadow-2xl overflow-hidden animate-slide-up mx-2 z-[62]">
               <div className="px-5 py-3 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 dark:border-white/5 text-right flex justify-between items-center flex-row-reverse">
                 <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">الأقسام</span>
-                <span className="text-lg">📋</span>
+                <MenuIcon className="w-5 h-5 opacity-60" />
               </div>
               <div className="max-h-[45vh] overflow-y-auto no-scrollbar">
                 {navItems.map((item) => (

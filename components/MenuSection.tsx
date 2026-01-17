@@ -12,7 +12,7 @@ const MenuSection: React.FC<Props> = ({ section, isFirst, onItemSelect }) => {
   const isNumeric = (val: string) => /^\d+$/.test(val.trim());
 
   return (
-    <section id={section.id} className="mb-10 scroll-mt-[195px]" aria-labelledby={`${section.id}-heading`}>
+    <section id={section.id} className="mb-10 scroll-mt-[170px]" aria-labelledby={`${section.id}-heading`}>
       <div className="relative aspect-[16/10] md:aspect-[21/9] rounded-[2.5rem] overflow-hidden mb-6 shadow-2xl border border-zinc-200 dark:border-white/5 bg-zinc-200 dark:bg-zinc-900 reveal-item group">
         <img
           src={section.image}
