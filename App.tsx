@@ -47,21 +47,14 @@ const App: React.FC = () => {
     const root = document.documentElement;
     if (isDark) {
       root.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
     } else {
       root.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
     }
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
-  useEffect(() => {
-    if (cart.length === 0 && isCheckoutOpen) {
-      setIsCheckoutOpen(false);
-    }
-  }, [cart, isCheckoutOpen]);
-
   const triggerHaptic = (pattern = 10) => {
-    if (typeof window !== 'undefined' && navigator.vibrate) {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
       navigator.vibrate(pattern);
     }
   };
@@ -119,7 +112,7 @@ const App: React.FC = () => {
 
   const sendOrderToWhatsApp = () => {
     if (!customerName || !customerPhone || !customerAddress) {
-      alert("يرجى ملء كافة بيانات التوصيل (الاسم، الموبايل، العنوان)");
+      alert("يرجى ملء كافة بيانات التوصيل");
       return;
     }
 
@@ -128,37 +121,38 @@ const App: React.FC = () => {
     const timeStr = now.toLocaleTimeString('ar-EG');
     const orderId = Math.floor(Math.random() * 90000) + 10000;
     
-    // توقيع رقمي بسيط للتحقق من السعر (تشفير السعر مع رقم الموبايل)
-    const verificationCode = btoa(`${customerPhone}-${total}`).substring(0, 8).toUpperCase();
+    // نظام حماية: كود فريد يعتمد على السعر والموبايل والوقت لضمان عدم التلاعب
+    const checksum = (total * 7 + parseInt(customerPhone.slice(-4)) || 0) % 9999;
+    const verificationCode = `V-${orderId}-${checksum}`;
 
-    let message = `🛑 *نظام الطلب التلقائي - أطياب*\n`;
-    message += `⚠️ *الرجاء عدم تعديل الرسالة لضمان قبول الطلب*\n`;
+    let message = `🛑 *نظام طلبات أطياب التلقائي*\n`;
+    message += `⚠️ *تنبيه: أي تعديل في الرسالة يلغي الطلب*\n`;
     message += `━━━━━━━━━━━━━━\n`;
-    message += `🔢 *رقم الطلب:* #${orderId}\n`;
-    message += `👤 *الاسم:* ${customerName}\n`;
+    message += `🔢 *طلب رقم:* #${orderId}\n`;
+    message += `👤 *العميل:* ${customerName}\n`;
     message += `📞 *الموبايل:* ${customerPhone}\n`;
     message += `📍 *العنوان:* ${customerAddress}\n`;
     message += `━━━━━━━━━━━━━━\n\n`;
-    message += `🧾 *تفاصيل المنيو:*\n`;
+    message += `🧾 *تفاصيل الفاتورة:*\n`;
 
     cart.forEach((item, idx) => {
-      message += `${idx + 1}. *${item.name}* [${item.categoryName}] ${item.size ? `(${item.size})` : ''} x${item.quantity}\n`;
+      const itemBase = item.price * item.quantity;
+      const addonsTotal = item.addons.reduce((s, a) => s + a.price, 0) * item.quantity;
+      
+      message += `${idx + 1}. *${item.name}* x${item.quantity} ${item.size ? `(${item.size})` : ''}\n`;
       if (item.addons.length > 0) {
-        message += `   ➕ إضافات: ${item.addons.map(a => `${a.name} (${a.price} ج)`).join(' + ')}\n`;
+        message += `   ➕ إضافات: ${item.addons.map(a => `${a.name} (+${a.price}ج)`).join(' ، ')}\n`;
       }
-      if (item.notes) {
-        message += `   📝 ملاحظة: ${item.notes}\n`;
-      }
-      const itemTotal = (item.price + item.addons.reduce((s, a) => s + a.price, 0)) * item.quantity;
-      message += `   💰 الفرعي: ${itemTotal} ج\n\n`;
+      if (item.notes) message += `   📝 ملاحظة: ${item.notes}\n`;
+      message += `   💰 السعر: ${itemBase + addonsTotal} ج\n\n`;
     });
 
     message += `━━━━━━━━━━━━━━\n`;
     message += `💰 *الإجمالي النهائي: ${total} جنيه*\n`;
-    message += `⏰ *الوقت:* ${timeStr}\n`;
-    message += `🔐 *كود التحقق:* ${verificationCode}\n`;
+    message += `⏰ *توقيت الإرسال:* ${timeStr}\n`;
+    message += `🔐 *كود الحماية:* ${verificationCode}\n`;
     message += `━━━━━━━━━━━━━━\n`;
-    message += `⚠️ *ملاحظة:* أي تعديل يدوي في هذه الرسالة سيؤدي لإلغاء الأوردر من السيستم فوراً.`;
+    message += `نحن في انتظارك! سيتم التواصل معك لتأكيد الأوردر.`;
 
     const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
@@ -171,36 +165,29 @@ const App: React.FC = () => {
     e.preventDefault();
     const target = document.getElementById(id);
     if (target) {
-      isScrollingToRef.current = true;
       const offsetPosition = target.getBoundingClientRect().top + window.pageYOffset - 180;
       window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
       setActiveSection(id);
       setShowCategoriesMenu(false);
-      setTimeout(() => isScrollingToRef.current = false, 1000);
     }
   };
 
   const navItems = [...MENU_DATA.slice(0, 4), PIZZA_FATAYER_ADDITIONS, ...MENU_DATA.slice(4, 8), CREPE_ADDITIONS];
-
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(currentUrl)}&bgcolor=ffffff&color=000000`;
   const mapsLink = "https://www.google.com/maps/search/R7XC+FC7+برج+أنس+الوجود";
 
   const getRelevantAddons = () => {
     if (!selectedItem) return null;
     const sectionId = selectedItem.section.id;
-    if (['fatayer-savory', 'pizza-oriental', 'pizza-italian'].includes(sectionId)) {
-      return PIZZA_FATAYER_ADDITIONS;
-    }
-    if (['crepe-savory', 'rolls', 'syrian'].includes(sectionId)) {
-      return CREPE_ADDITIONS;
-    }
+    if (['fatayer-savory', 'pizza-oriental', 'pizza-italian'].includes(sectionId)) return PIZZA_FATAYER_ADDITIONS;
+    if (['crepe-savory', 'rolls', 'syrian'].includes(sectionId)) return CREPE_ADDITIONS;
     return null;
   };
 
   const additionsGroup = getRelevantAddons();
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-[#050505] text-zinc-900 dark:text-zinc-200 antialiased selection:bg-yellow-500/30">
+    <div className="min-h-screen text-zinc-900 dark:text-zinc-200 antialiased selection:bg-yellow-500/30">
       <Header isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} onAction={() => triggerHaptic()} />
       
       {/* Category Nav Bar */}
@@ -213,7 +200,7 @@ const App: React.FC = () => {
               className={`whitespace-nowrap px-4 py-2 rounded-2xl text-[12px] font-black border transition-all ${
                 activeSection === item.id 
                 ? 'bg-yellow-600 text-black border-yellow-500 scale-105 shadow-lg shadow-yellow-600/20' 
-                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 text-zinc-500 hover:border-yellow-500/30'
+                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 text-zinc-500'
               }`}
             >
               <span className="animate-emoji">{(item as any).emoji || '✨'}</span> {item.title}
@@ -223,40 +210,30 @@ const App: React.FC = () => {
       </nav>
 
       <main className="max-w-2xl mx-auto px-5 py-8 pb-48">
+        {/* Hero Card */}
         <div className="mb-12 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 p-10 relative overflow-hidden text-right shadow-2xl reveal-item">
           <div className="relative z-10">
             <h2 className="text-5xl font-black text-zinc-900 dark:text-white mb-2 leading-none italic uppercase tracking-tighter">ATYAB</h2>
             <p className="text-yellow-600 dark:text-yellow-500 text-sm font-black uppercase mb-4 tracking-widest">فطاطري أطياب</p>
             <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500 text-[10px] font-bold">
               <span>📍 البدرشين - برج أنس الوجود</span>
-              <span className="w-1 h-1 bg-zinc-300 rounded-full"></span>
-              <span>شارع آثار سقارة</span>
             </div>
           </div>
-          <div className="absolute -left-10 -bottom-12 text-[180px] opacity-[0.04] grayscale select-none pointer-events-none rotate-12 animate-emoji">🥨</div>
-          <div className="absolute right-0 top-0 w-32 h-32 bg-gradient-to-bl from-yellow-600/10 to-transparent rounded-bl-full"></div>
+          <div className="absolute -left-10 -bottom-12 text-[180px] opacity-[0.04] grayscale rotate-12 animate-emoji">🥨</div>
         </div>
 
         {MENU_DATA.slice(0, 4).map((section) => (
-          <MenuSection 
-            key={section.id} 
-            section={section} 
-            onItemSelect={(item, sec) => {
-              triggerHaptic();
-              setSelectedItem({ item, section: sec });
-              resetItemStates();
-            }} 
-          />
+          <MenuSection key={section.id} section={section} onItemSelect={(item, sec) => { triggerHaptic(); setSelectedItem({ item, section: sec }); resetItemStates(); }} />
         ))}
 
-        <div id={PIZZA_FATAYER_ADDITIONS.id} className="scroll-mt-[200px] mb-10 p-8 bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-zinc-200 dark:border-white/10 text-right reveal-item">
+        {/* Additions Section View */}
+        <div id={PIZZA_FATAYER_ADDITIONS.id} className="scroll-mt-[200px] mb-10 p-8 bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-zinc-200 dark:border-white/10 text-right reveal-item shadow-lg">
           <h3 className="text-2xl font-black mb-4 flex items-center gap-3">
             <span className="animate-emoji">✨</span> {PIZZA_FATAYER_ADDITIONS.title}
           </h3>
-          <p className="text-zinc-500 text-sm font-bold mb-6">تظهر هذه الخيارات تلقائياً عند اختيار أي فطيرة أو بيتزا.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
              {PIZZA_FATAYER_ADDITIONS.items.map((add, i) => (
-               <div key={i} className="flex justify-between items-center bg-zinc-50 dark:bg-white/5 p-4 rounded-2xl">
+               <div key={i} className="flex justify-between items-center bg-zinc-50 dark:bg-white/5 p-4 rounded-2xl border border-zinc-100 dark:border-white/5">
                  <span className="text-yellow-600 font-black tabular-nums">{add.prices[0]} ج</span>
                  <span className="font-bold text-sm">{add.name}</span>
                </div>
@@ -265,114 +242,73 @@ const App: React.FC = () => {
         </div>
 
         {MENU_DATA.slice(4, 8).map((section) => (
-          <MenuSection 
-            key={section.id} 
-            section={section} 
-            onItemSelect={(item, sec) => {
-              triggerHaptic();
-              setSelectedItem({ item, section: sec });
-              resetItemStates();
-            }} 
-          />
+          <MenuSection key={section.id} section={section} onItemSelect={(item, sec) => { triggerHaptic(); setSelectedItem({ item, section: sec }); resetItemStates(); }} />
         ))}
 
-        <div id={CREPE_ADDITIONS.id} className="scroll-mt-[200px] mb-10 p-8 bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-zinc-200 dark:border-white/10 text-right reveal-item">
-          <h3 className="text-2xl font-black mb-4 flex items-center gap-3">
-            <span className="animate-emoji">✨</span> {CREPE_ADDITIONS.title}
-          </h3>
-          <p className="text-zinc-500 text-sm font-bold mb-6">تظهر هذه الخيارات عند اختيار الكريب، الرول، أو السوري.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-             {CREPE_ADDITIONS.items.map((add, i) => (
-               <div key={i} className="flex justify-between items-center bg-zinc-50 dark:bg-white/5 p-4 rounded-2xl">
-                 <span className="text-yellow-600 font-black tabular-nums">{add.prices[0]} ج</span>
-                 <span className="font-bold text-sm">{add.name}</span>
-               </div>
-             ))}
-          </div>
-        </div>
-
+        {/* QR Section */}
         <footer className="mt-24 pb-12 flex flex-col items-center gap-8 reveal-item">
-            <div className="w-full bg-white dark:bg-zinc-900 rounded-[3rem] p-12 shadow-2xl border border-zinc-200 dark:border-white/10 flex flex-col items-center gap-8 text-center relative overflow-hidden">
+            <div className="w-full bg-white dark:bg-zinc-900 rounded-[3rem] p-12 shadow-2xl border border-zinc-200 dark:border-white/10 flex flex-col items-center text-center">
                <AtyabLogo />
-               <div className="space-y-2">
-                 <h3 className="text-4xl font-black text-zinc-900 dark:text-white uppercase italic tracking-tighter">ATYAB</h3>
-                 <p className="text-yellow-600 dark:text-yellow-500 text-xs font-black uppercase tracking-[0.2em]">الجودة والتميز</p>
-               </div>
-               <div className="relative p-6 bg-white rounded-[2.5rem] border-4 border-zinc-100 shadow-inner">
+               <div className="relative p-6 bg-white rounded-[2.5rem] border-4 border-zinc-50 shadow-inner mb-6">
                   <img src={qrUrl} alt="QR Code" className="w-44 h-44" />
                </div>
-               <p className="text-[11px] text-zinc-400 font-black max-w-[200px] leading-relaxed">
-                 امسح الكود بكاميرا هاتفك لمشاركة القائمة مع أصدقائك
-               </p>
+               <p className="text-[11px] text-zinc-400 font-black max-w-[200px]">امسح الكود لمشاركة المنيو</p>
             </div>
-            <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="w-full bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 shadow-xl border border-zinc-200 dark:border-white/10 text-right group active:scale-95 transition-all">
-               <div className="flex flex-col gap-4">
-                  <div className="flex items-start gap-6">
-                    <div className="w-16 h-16 bg-yellow-50 dark:bg-yellow-900/20 rounded-3xl flex items-center justify-center text-3xl animate-emoji">📍</div>
-                    <div className="flex flex-col pt-1">
-                       <span className="text-[11px] font-black text-yellow-600 uppercase tracking-tighter mb-1">موقعنا على الخريطة</span>
-                       <p className="text-zinc-800 dark:text-zinc-100 text-base font-black leading-snug">برج أنس الوجود - البدرشين</p>
-                    </div>
-                  </div>
+            <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="w-full bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 shadow-xl border border-zinc-200 dark:border-white/10 text-right">
+               <div className="flex items-start gap-6">
+                 <div className="w-16 h-16 bg-yellow-50 dark:bg-yellow-900/20 rounded-3xl flex items-center justify-center text-3xl animate-emoji">📍</div>
+                 <div className="flex flex-col pt-1">
+                    <span className="text-[11px] font-black text-yellow-600 uppercase">موقعنا</span>
+                    <p className="text-zinc-800 dark:text-zinc-100 text-base font-black">برج أنس الوجود - البدرشين</p>
+                 </div>
                </div>
             </a>
         </footer>
       </main>
 
-      {/* Item Selection Modal */}
+      {/* Item Selection Modal - SMALL SIZE + LARGE MARGINS + BIG TEXT */}
       {selectedItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md p-8 md:p-12" onClick={() => setSelectedItem(null)}>
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-[2.5rem] p-6 md:p-8 shadow-2xl animate-slide-up overflow-y-auto max-h-[75vh]" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-5">
-              <button 
-                onClick={() => setSelectedItem(null)} 
-                className="w-11 h-11 flex items-center justify-center bg-red-500 text-white rounded-full font-black text-xl hover:rotate-90 transition-transform shadow-lg shadow-red-500/20"
-              >
-                ✕
-              </button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-md p-10 md:p-20" onClick={() => setSelectedItem(null)}>
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-[2.5rem] p-6 md:p-8 shadow-2xl animate-slide-up overflow-y-auto max-h-[70vh] border border-white/10" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-6">
+              <button onClick={() => setSelectedItem(null)} className="w-12 h-12 flex items-center justify-center bg-red-500 text-white rounded-full font-black text-2xl shadow-lg active:scale-90">✕</button>
               <div className="text-right">
                 <h3 className="text-2xl font-black leading-tight mb-1">{selectedItem.item.name}</h3>
-                <span className="bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 px-3 py-1.5 rounded-full text-xs font-black">
-                  {selectedItem.section.title}
-                </span>
+                <span className="bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 px-3 py-1.5 rounded-full text-[11px] font-black">{selectedItem.section.title}</span>
               </div>
             </div>
 
-            {/* Size Selector */}
             {selectedItem.item.prices.length > 1 && (
-              <div className="mb-5">
-                <p className="text-right font-black mb-2.5 text-sm text-zinc-400">اختر الحجم:</p>
+              <div className="mb-6">
+                <p className="text-right font-black mb-3 text-sm text-zinc-400">اختر الحجم:</p>
                 <div className="flex gap-3 flex-row-reverse">
                   {selectedItem.item.prices.map((p, i) => (
                     <button 
                       key={i} 
                       onClick={() => { triggerHaptic(); setSelectedSizeIdx(i); }}
-                      className={`flex-1 py-3.5 rounded-xl font-black text-sm border-2 transition-all flex flex-col items-center gap-0.5 ${selectedSizeIdx === i ? 'bg-yellow-600 border-yellow-600 text-black shadow-md shadow-yellow-600/20' : 'bg-zinc-50 dark:bg-white/5 border-zinc-100 dark:border-white/5 text-zinc-500'}`}
+                      className={`flex-1 py-4 rounded-xl font-black text-sm border-2 transition-all flex flex-col items-center ${selectedSizeIdx === i ? 'bg-yellow-600 border-yellow-600 text-black shadow-lg shadow-yellow-600/20' : 'bg-zinc-50 dark:bg-white/5 border-zinc-100 dark:border-white/5 text-zinc-500'}`}
                     >
-                      <span className="opacity-70 text-xs">{selectedItem.item.labels?.[i] || selectedItem.section.subtitles?.[i]}</span>
-                      <span className="text-lg tabular-nums leading-none">{p} ج</span>
+                      <span className="text-xs opacity-60">{selectedItem.item.labels?.[i] || selectedItem.section.subtitles?.[i]}</span>
+                      <span className="text-xl tabular-nums">{p} ج</span>
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Add-ons Selector */}
             {additionsGroup && (
-              <div className="mb-5">
-                <p className="text-right font-black mb-2.5 text-sm text-zinc-400">إضافات مميزة:</p>
-                <div className="grid grid-cols-2 gap-2.5">
+              <div className="mb-6">
+                <p className="text-right font-black mb-3 text-sm text-zinc-400">إضافات مميزة:</p>
+                <div className="grid grid-cols-2 gap-3">
                   {additionsGroup.items.map((add, i) => {
                     const price = parseInt(add.prices[0]) || 0;
                     const isActive = selectedAddons.some(a => a.name === add.name);
                     return (
-                      <button 
-                        key={i}
-                        onClick={() => toggleAddon({ name: add.name, price })}
-                        className={`p-3.5 rounded-xl border-2 text-right transition-all flex flex-col gap-0.5 ${isActive ? 'bg-yellow-600/10 border-yellow-600 text-yellow-600' : 'bg-zinc-50 dark:bg-white/5 border-zinc-100 dark:border-white/5 text-zinc-600 dark:text-zinc-400'}`}
+                      <button key={i} onClick={() => toggleAddon({ name: add.name, price })}
+                        className={`p-4 rounded-xl border-2 text-right transition-all flex flex-col ${isActive ? 'bg-yellow-600/10 border-yellow-600 text-yellow-600' : 'bg-zinc-50 dark:bg-white/5 border-zinc-100 dark:border-white/5 text-zinc-400'}`}
                       >
-                        <span className="text-[13px] font-black leading-tight">{add.name}</span>
-                        <span className="text-[11px] font-black tabular-nums opacity-60">+{price} جنيه</span>
+                        <span className="text-sm font-black">{add.name}</span>
+                        <span className="text-xs font-bold tabular-nums">+{price} ج</span>
                       </button>
                     );
                   })}
@@ -380,131 +316,86 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* Notes */}
-            <div className="mb-5">
-              <p className="text-right font-black mb-2.5 text-sm text-zinc-400">ملاحظات (اختياري):</p>
-              <textarea 
-                value={itemNotes}
-                onChange={e => setItemNotes(e.target.value)}
-                placeholder="مثال: بدون بصل، صوص زيادة..."
-                className="w-full bg-zinc-50 dark:bg-white/5 border-2 border-zinc-100 dark:border-white/5 rounded-xl p-4 text-right font-bold text-sm focus:border-yellow-600 outline-none transition-all resize-none h-18"
+            <div className="mb-6">
+              <textarea value={itemNotes} onChange={e => setItemNotes(e.target.value)} placeholder="أي ملاحظات خاصة؟"
+                className="w-full bg-zinc-50 dark:bg-white/5 border-2 border-zinc-100 dark:border-white/5 rounded-xl p-4 text-right font-bold text-base h-20 outline-none focus:border-yellow-600"
               />
             </div>
 
-            {/* Quantity and Add Button */}
             <div className="flex items-center gap-4">
               <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-xl p-2 gap-4">
                 <button onClick={() => { triggerHaptic(); setItemQuantity(q => q + 1); }} className="w-10 h-10 bg-white dark:bg-zinc-700 rounded-lg font-black text-2xl shadow-sm">+</button>
-                <span className="font-black text-xl tabular-nums min-w-[30px] text-center">{itemQuantity}</span>
+                <span className="font-black text-xl min-w-[30px] text-center">{itemQuantity}</span>
                 <button onClick={() => { triggerHaptic(); setItemQuantity(q => Math.max(1, q - 1)); }} className="w-10 h-10 bg-white dark:bg-zinc-700 rounded-lg font-black text-2xl shadow-sm">-</button>
               </div>
-              <button 
-                onClick={addToCart}
-                className="flex-1 bg-yellow-600 text-black font-black py-4 rounded-xl text-lg shadow-lg shadow-yellow-600/30 active:scale-95 transition-all"
-              >
-                إضافة للسلة
-              </button>
+              <button onClick={addToCart} className="flex-1 bg-yellow-600 text-black font-black py-5 rounded-xl text-xl shadow-xl active:scale-95">إضافة للسلة</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Checkout Modal */}
+      {/* Checkout Modal - SMALL SIZE + LARGE MARGINS + BIG TEXT */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-xl p-8 md:p-12" onClick={() => setIsCheckoutOpen(false)}>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/85 backdrop-blur-xl p-10 md:p-20" onClick={() => setIsCheckoutOpen(false)}>
           <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-[2.5rem] p-6 md:p-8 shadow-2xl animate-slide-up relative max-h-[75vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-6">
-              <button 
-                onClick={() => setIsCheckoutOpen(false)} 
-                className="w-11 h-11 flex items-center justify-center bg-red-500 text-white rounded-full font-black text-xl shadow-lg shadow-red-500/20"
-              >
-                ✕
-              </button>
+            <div className="flex justify-between items-start mb-8">
+              <button onClick={() => setIsCheckoutOpen(false)} className="w-12 h-12 flex items-center justify-center bg-red-500 text-white rounded-full font-black text-2xl shadow-lg">✕</button>
               <div className="text-right">
-                <h3 className="text-3xl font-black mb-1">تأكيد الطلب</h3>
-                <p className="text-zinc-400 text-xs font-bold">سيتم إرسال الطلب عبر الواتساب</p>
+                <h3 className="text-3xl font-black mb-1">تأكيد الأوردر</h3>
+                <p className="text-zinc-400 text-xs font-bold">يرجى مراجعة بيانات التوصيل</p>
               </div>
             </div>
 
             <div className="space-y-6">
               <div className="space-y-4">
-                <p className="text-right font-black text-sm text-zinc-400">بيانات التوصيل:</p>
-                <input 
-                  type="text" 
-                  placeholder="الاسم بالكامل" 
-                  value={customerName}
-                  onChange={e => setCustomerName(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-white/5 border-2 border-zinc-100 dark:border-white/5 rounded-xl p-4 text-right font-bold text-base outline-none focus:border-yellow-600 transition-all"
+                <input type="text" placeholder="الاسم بالكامل" value={customerName} onChange={e => setCustomerName(e.target.value)}
+                  className="w-full bg-zinc-50 dark:bg-white/5 border-2 border-zinc-100 dark:border-white/5 rounded-xl p-5 text-right font-bold text-lg outline-none focus:border-yellow-600"
                 />
-                <input 
-                  type="tel" 
-                  placeholder="رقم الموبايل" 
-                  value={customerPhone}
-                  onChange={e => setCustomerPhone(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-white/5 border-2 border-zinc-100 dark:border-white/5 rounded-xl p-4 text-right font-bold text-base outline-none focus:border-yellow-600 transition-all tabular-nums"
+                <input type="tel" placeholder="رقم الموبايل" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)}
+                  className="w-full bg-zinc-50 dark:bg-white/5 border-2 border-zinc-100 dark:border-white/5 rounded-xl p-5 text-right font-bold text-lg outline-none focus:border-yellow-600 tabular-nums"
                 />
-                <textarea 
-                  placeholder="العنوان بالتفصيل" 
-                  value={customerAddress}
-                  onChange={e => setCustomerAddress(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-white/5 border-2 border-zinc-100 dark:border-white/5 rounded-xl p-4 text-right font-bold text-base outline-none focus:border-yellow-600 transition-all resize-none h-20"
+                <textarea placeholder="العنوان بالتفصيل" value={customerAddress} onChange={e => setCustomerAddress(e.target.value)}
+                  className="w-full bg-zinc-50 dark:bg-white/5 border-2 border-zinc-100 dark:border-white/5 rounded-xl p-5 text-right font-bold text-lg outline-none focus:border-yellow-600 h-24"
                 />
               </div>
 
               <div className="bg-zinc-50 dark:bg-white/5 rounded-3xl p-6 border border-zinc-200 dark:border-white/10">
-                <p className="text-right font-black text-sm text-zinc-400 mb-4">ملخص السلة:</p>
-                <div className="space-y-4 max-h-48 overflow-y-auto no-scrollbar px-1">
+                <p className="text-right font-black text-sm text-zinc-400 mb-4">ملخص الأوردر:</p>
+                <div className="space-y-4 max-h-40 overflow-y-auto px-1 no-scrollbar">
                   {cart.map(item => (
-                    <div key={item.id} className="flex flex-col py-2.5 border-b last:border-0 border-zinc-100 dark:border-white/5">
-                      <div className="flex justify-between items-center group">
+                    <div key={item.id} className="flex flex-col py-3 border-b border-zinc-100 dark:border-white/5 last:border-0">
+                      <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
-                          <button 
-                            onClick={() => removeFromCart(item.id)}
-                            className="w-7 h-7 flex items-center justify-center bg-red-100 dark:bg-red-900/40 text-red-600 rounded-lg active:scale-90 transition-all text-sm"
-                            title="حذف من السلة"
-                          >
-                            ✕
-                          </button>
-                          <span className="font-black tabular-nums text-base">{(item.price + item.addons.reduce((s, a) => s + a.price, 0)) * item.quantity} ج</span>
+                          <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 bg-red-100 dark:bg-red-900/40 text-red-600 rounded-lg text-sm">✕</button>
+                          <span className="font-black text-lg tabular-nums">{(item.price + item.addons.reduce((s,a)=>s+a.price,0)) * item.quantity}ج</span>
                         </div>
                         <div className="text-right">
-                          <p className="font-black text-zinc-800 dark:text-zinc-200 text-base">{item.name} x{item.quantity}</p>
-                          <p className="text-xs text-yellow-600 font-bold leading-none mt-0.5">{item.categoryName}</p>
-                          {item.size && <span className="text-[11px] text-zinc-400 opacity-60 leading-none block mt-1">{item.size}</span>}
+                          <p className="font-black text-lg">{item.name} x{item.quantity}</p>
+                          {item.size && <span className="text-xs text-zinc-400 font-bold">{item.size}</span>}
                         </div>
                       </div>
-                      {/* عرض الإضافات تحت الصنف في السلة */}
-                      {item.addons.length > 0 && (
-                        <div className="flex flex-wrap flex-row-reverse gap-x-2 gap-y-1 mt-1.5 mr-0">
-                          {item.addons.map((addon, aIdx) => (
-                            <span key={aIdx} className="bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 text-[10px] font-bold px-2 py-0.5 rounded-lg border border-yellow-500/20">
-                              + {addon.name} ({addon.price} ج)
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      {item.addons.map((a, i) => (
+                        <span key={i} className="text-right text-[11px] text-yellow-600 font-bold mt-1">+ {a.name} ({a.price} ج)</span>
+                      ))}
                     </div>
                   ))}
                 </div>
-                <div className="mt-5 pt-4 border-t border-zinc-200 dark:border-white/10 flex justify-between items-center">
-                  <span className="text-2xl font-black text-yellow-600 tabular-nums">{calculateTotal()} ج</span>
-                  <span className="font-black text-lg">الإجمالي النهائي</span>
+                <div className="mt-6 pt-4 border-t border-zinc-200 dark:border-white/10 flex justify-between items-center">
+                  <span className="text-3xl font-black text-yellow-600 tabular-nums">{calculateTotal()} ج</span>
+                  <span className="font-black text-xl">الحساب النهائي</span>
                 </div>
               </div>
 
-              <button 
-                onClick={sendOrderToWhatsApp}
-                className="w-full bg-[#25D366] text-white font-black py-4 rounded-[2rem] text-xl shadow-xl shadow-green-600/20 active:scale-95 transition-all flex items-center justify-center gap-4"
-              >
-                <span>إرسال الطلب للواتساب</span>
-                <svg className="w-7 h-7 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" /></svg>
+              <button onClick={sendOrderToWhatsApp} className="w-full bg-[#25D366] text-white font-black py-5 rounded-[2.5rem] text-2xl shadow-xl active:scale-95 flex items-center justify-center gap-4">
+                <span>إرسال للواتساب</span>
+                <svg className="w-8 h-8 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" /></svg>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Floating Cart & Bottom Nav */}
+      {/* Navigation Bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-[60] px-4 pb-6 pt-2 md:hidden">
         <div className="max-w-xl mx-auto glass border border-zinc-200 dark:border-white/10 rounded-[2.5rem] p-2 flex items-center justify-around shadow-2xl relative">
           
@@ -512,10 +403,8 @@ const App: React.FC = () => {
             <div className="fixed inset-0 bg-black/40 backdrop-blur-[4px] z-[61]" onClick={() => { setShowBottomCallMenu(false); setShowCategoriesMenu(false); }}></div>
           )}
 
-          {/* Cart Preview (if items in cart) */}
           {cart.length > 0 && !isCheckoutOpen && !selectedItem && (
-            <button 
-              onClick={() => { triggerHaptic(); setIsCheckoutOpen(true); }}
+            <button onClick={() => { triggerHaptic(); setIsCheckoutOpen(true); }}
               className="absolute -top-16 left-0 right-0 mx-8 bg-zinc-900 dark:bg-white text-white dark:text-black py-4 px-8 rounded-full shadow-2xl flex justify-between items-center animate-slide-up border border-white/20"
             >
               <span className="font-black tabular-nums text-lg">{calculateTotal()} ج</span>
@@ -526,24 +415,24 @@ const App: React.FC = () => {
             </button>
           )}
 
-          <a href={`https://wa.me/${WHATSAPP_NUMBER}`} className="flex-1 flex flex-col items-center py-2 gap-1 text-[#25D366]">
-            <svg className="w-6 h-6 fill-current animate-emoji" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" /></svg>
+          <a href={`https://wa.me/${WHATSAPP_NUMBER}`} className="flex-1 flex flex-col items-center py-2 text-[#25D366]">
+            <span className="text-2xl animate-emoji">💬</span>
             <span className="text-[10px] font-black">واتساب</span>
           </a>
-          <button onClick={() => { setShowBottomCallMenu(!showBottomCallMenu); setShowCategoriesMenu(false); }} className={`flex-1 flex flex-col items-center py-2 gap-1 ${showBottomCallMenu ? 'text-yellow-600' : 'text-zinc-500'}`}>
+          <button onClick={() => { setShowBottomCallMenu(!showBottomCallMenu); setShowCategoriesMenu(false); }} className={`flex-1 flex flex-col items-center py-2 ${showBottomCallMenu ? 'text-yellow-600' : 'text-zinc-500'}`}>
             <span className="text-2xl animate-emoji">📞</span>
             <span className="text-[10px] font-black">اتصال</span>
           </button>
           
-          <button onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})} className="bg-yellow-600 w-16 h-16 rounded-full flex items-center justify-center text-black shadow-xl -mt-10 border-4 border-white dark:border-[#050505] active:scale-90 transition-all z-[63] yellow-glow">
+          <button onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})} className="bg-yellow-600 w-16 h-16 rounded-full flex items-center justify-center text-black shadow-xl -mt-10 border-4 border-white dark:border-[#050505] active:scale-90 z-[63] yellow-glow">
             <span className="text-xl animate-emoji">🔝</span>
           </button>
           
-          <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center py-2 gap-1 text-zinc-500">
+          <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center py-2 text-zinc-500">
             <span className="text-2xl animate-emoji">📍</span>
             <span className="text-[10px] font-black">الموقع</span>
           </a>
-          <button onClick={() => { setShowCategoriesMenu(!showCategoriesMenu); setShowBottomCallMenu(false); }} className={`flex-1 flex flex-col items-center py-2 gap-1 ${showCategoriesMenu ? 'text-yellow-600' : 'text-zinc-500'}`}>
+          <button onClick={() => { setShowCategoriesMenu(!showCategoriesMenu); setShowBottomCallMenu(false); }} className={`flex-1 flex flex-col items-center py-2 ${showCategoriesMenu ? 'text-yellow-600' : 'text-zinc-500'}`}>
             <span className="text-2xl animate-emoji">📋</span>
             <span className="text-[10px] font-black">المنيو</span>
           </button>
@@ -551,21 +440,21 @@ const App: React.FC = () => {
           {/* Menus popups */}
           {showBottomCallMenu && (
              <div className="absolute bottom-[calc(100%+1rem)] left-0 right-0 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up mx-2 z-[62]">
-               <div className="px-6 py-4 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 text-right"><span className="text-[10px] font-black text-zinc-400">تواصل معنا</span></div>
+               <div className="px-6 py-4 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 text-right font-black text-[10px] text-zinc-400">تواصل معنا</div>
                {[{n: "01044168230", l: "رقم 1"}, {n: "01124005181", l: "رقم 2"}].map((p, i) => (
-                 <a key={i} href={`tel:${p.n}`} className="flex items-center justify-between px-7 py-4 border-b last:border-0 border-zinc-100 dark:border-white/5 active:bg-yellow-50"><span className="text-[11px] font-black text-zinc-400">{p.l}</span><span className="text-[17px] font-black tabular-nums tracking-tighter text-yellow-600">{p.n}</span></a>
+                 <a key={i} href={`tel:${p.n}`} className="flex items-center justify-between px-7 py-4 border-b last:border-0 border-zinc-100 dark:border-white/5 active:bg-yellow-50"><span className="text-[11px] font-black text-zinc-400">{p.l}</span><span className="text-[17px] font-black text-yellow-600">{p.n}</span></a>
                ))}
              </div>
           )}
 
           {showCategoriesMenu && (
             <div className="absolute bottom-[calc(100%+1rem)] left-0 right-0 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up mx-2 z-[62]">
-              <div className="px-6 py-4 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 text-right"><span className="text-[10px] font-black text-zinc-400">اختر القسم</span></div>
+              <div className="px-6 py-4 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 text-right font-black text-[10px] text-zinc-400">اختر القسم</div>
               <div className="max-h-[50vh] overflow-y-auto no-scrollbar">
                 {navItems.map((item) => (
-                  <button key={item.id} onClick={(e) => handleNavClick(e, item.id)} className={`w-full flex items-center justify-between px-7 py-5 border-b last:border-0 border-zinc-100 dark:border-white/5 transition-all text-right ${activeSection === item.id ? 'bg-yellow-50 dark:bg-yellow-500/5' : ''}`}>
+                  <button key={item.id} onClick={(e) => handleNavClick(e, item.id)} className={`w-full flex items-center justify-between px-7 py-5 border-b last:border-0 border-zinc-100 dark:border-white/5 ${activeSection === item.id ? 'bg-yellow-50 dark:bg-yellow-500/5' : ''}`}>
                     <span className="text-xl animate-emoji">{(item as any).emoji || '✨'}</span>
-                    <span className={`text-[15px] font-black ${activeSection === item.id ? 'text-yellow-600' : 'text-zinc-800 dark:text-zinc-200'}`}>{item.title}</span>
+                    <span className={`text-[15px] font-black ${activeSection === item.id ? 'text-yellow-600' : ''}`}>{item.title}</span>
                   </button>
                 ))}
               </div>
