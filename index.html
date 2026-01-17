@@ -1,0 +1,114 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover" />
+    
+    <!-- Primary Meta Tags -->
+    <title>فطاطري أطياب | الطعم له أصول</title>
+    <meta name="title" content="فطاطري أطياب | القائمة الرقمية الرسمية" />
+    <meta name="description" content="اكتشف قائمة فطاطري أطياب بالبدرشين - فطير شرقي، بيتزا، كريب، وسوري بأفضل جودة." />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: '#eab308',
+              brandYellow: '#eab308',
+              brandOrange: '#f36f21',
+              dark: '#050505',
+              card: '#0f0f0f'
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      :root { --brand-yellow: #eab308; }
+      body {
+        font-family: 'Cairo', sans-serif;
+        margin: 0;
+        padding: 0;
+        scroll-behavior: smooth;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .transition-theme {
+        transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease;
+      }
+      .glass { 
+        background: rgba(255, 255, 255, 0.8); 
+        backdrop-filter: blur(12px); 
+        -webkit-backdrop-filter: blur(12px); 
+      }
+      .dark .glass { 
+        background: rgba(15, 15, 15, 0.7); 
+      }
+      .yellow-glow { box-shadow: 0 0 20px rgba(234, 179, 8, 0.3); }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      
+      @keyframes reveal {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .reveal-item { animation: reveal 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+      
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
+
+      @keyframes popular-pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 0.9; }
+      }
+      .animate-popular { animation: popular-pulse 2s infinite ease-in-out; }
+
+      /* Section Emoji Animation (Slow & Floating) */
+      @keyframes floating-emoji {
+        0% { transform: translateY(0) rotate(0deg); }
+        25% { transform: translateY(-3px) rotate(8deg); }
+        50% { transform: translateY(0) rotate(0deg); }
+        75% { transform: translateY(-3px) rotate(-8deg); }
+        100% { transform: translateY(0) rotate(0deg); }
+      }
+      .animate-emoji {
+        display: inline-block;
+        animation: floating-emoji 3s ease-in-out infinite;
+      }
+
+      /* Spicy Chili Animation (Now Slow & Gentle) */
+      @keyframes spicy-shake {
+        0% { transform: rotate(0deg) scale(1); }
+        25% { transform: rotate(10deg) scale(1.05); }
+        50% { transform: rotate(0deg) scale(1); }
+        75% { transform: rotate(-10deg) scale(1.05); }
+        100% { transform: rotate(0deg) scale(1); }
+      }
+      .animate-spicy {
+        display: inline-block;
+        animation: spicy-shake 2.5s ease-in-out infinite;
+      }
+    </style>
+    <script type="importmap">
+    {
+      "imports": {
+        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+        "react/": "https://esm.sh/react@^19.2.3/",
+        "react": "https://esm.sh/react@^19.2.3"
+      }
+    }
+    </script>
+  </head>
+  <body class="overflow-x-hidden transition-theme">
+    <div id="root"></div>
+    <script type="module" src="index.tsx"></script>
+  </body>
+</html>

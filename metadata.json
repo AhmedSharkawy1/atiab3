@@ -1,0 +1,9 @@
+{
+  "name": "Copy of Copy of Copy of فطاطري أطياب - القائمة الرقمية 2",
+  "short_name": "Atyab Menu",
+  "description": "قائمة طعام فطاطري أطياب بالبدرشين - فطير شرقي، بيتزا، كريب، وسوري. الطعم الأصلي والجودة العالية.",
+  "theme_color": "#eab308",
+  "background_color": "#050505",
+  "display": "standalone",
+  "requestFramePermissions": []
+}
