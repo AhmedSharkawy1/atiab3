@@ -38,5 +38,5 @@ export interface CartItem {
   size?: string;
   quantity: number;
   notes: string;
-  addons: { name: string; price: number }[];
+  addons: { name: string; price: number; quantity: number }[];
 }

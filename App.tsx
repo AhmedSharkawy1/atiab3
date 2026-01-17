@@ -8,8 +8,8 @@ import { MenuItem, MenuSection as MenuSectionType, CartItem } from './types';
 
 const WHATSAPP_NUMBER = "201092621367";
 
-const AtyabLogo = ({ size = "w-24 h-24" }: { size?: string }) => (
-  <div className={`${size} relative flex items-center justify-center overflow-hidden rounded-full border-4 border-[#eab308] shadow-2xl bg-white dark:bg-zinc-900 mb-6 transform hover:rotate-12 transition-all duration-700 hover:scale-110 active:scale-95 cursor-pointer p-2`}>
+const AtyabLogo = ({ size = "w-16 h-16" }: { size?: string }) => (
+  <div className={`${size} relative flex items-center justify-center overflow-hidden rounded-full border-[3px] border-[#eab308] shadow-md bg-white dark:bg-zinc-900 mb-4 transform transition-all duration-700 hover:rotate-6 active:scale-95 cursor-pointer p-1`}>
     <Logo />
   </div>
 );
@@ -31,7 +31,7 @@ const App: React.FC = () => {
 
   // Modal Selection States
   const [selectedSizeIdx, setSelectedSizeIdx] = useState(0);
-  const [selectedAddons, setSelectedAddons] = useState<{ name: string, price: number }[]>([]);
+  const [selectedAddons, setSelectedAddons] = useState<{ name: string, price: number, quantity: number }[]>([]);
   const [itemNotes, setItemNotes] = useState("");
   const [itemQuantity, setItemQuantity] = useState(1);
 
@@ -39,6 +39,11 @@ const App: React.FC = () => {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
+
+  const navRef = useRef<HTMLDivElement>(null);
+  const isManualScrolling = useRef(false);
+
+  const navItems = [...MENU_DATA.slice(0, 4), PIZZA_FATAYER_ADDITIONS, ...MENU_DATA.slice(4, 8), CREPE_ADDITIONS];
 
   useEffect(() => {
     setCurrentUrl(window.location.href);
@@ -52,9 +57,66 @@ const App: React.FC = () => {
     }
   }, [isDark]);
 
+  useEffect(() => {
+    const observerOptions = {
+      root: null,
+      rootMargin: '-180px 0px -40% 0px',
+      threshold: 0
+    };
+
+    const observerCallback = (entries: IntersectionObserverEntry[]) => {
+      if (isManualScrolling.current) return;
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) setActiveSection(entry.target.id);
+      });
+    };
+
+    const observer = new IntersectionObserver(observerCallback, observerOptions);
+    navItems.forEach((item) => {
+      const el = document.getElementById(item.id);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [navItems]);
+
+  useEffect(() => {
+    if (activeSection && navRef.current) {
+      const activeButton = navRef.current.querySelector(`[data-section-id="${activeSection}"]`);
+      if (activeButton) {
+        activeButton.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center'
+        });
+      }
+    }
+  }, [activeSection]);
+
   const triggerHaptic = (pattern = 10) => {
     if (typeof window !== 'undefined' && navigator.vibrate) {
       navigator.vibrate(pattern);
+    }
+  };
+
+  const handleNavClick = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    const target = document.getElementById(id);
+    if (target) {
+      isManualScrolling.current = true;
+      setActiveSection(id);
+      const offsetPosition = target.getBoundingClientRect().top + window.pageYOffset - 170;
+      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+      setShowCategoriesMenu(false);
+      setTimeout(() => { isManualScrolling.current = false; }, 800);
+    }
+  };
+
+  const scrollNav = (direction: 'left' | 'right') => {
+    if (navRef.current) {
+      const scrollAmount = direction === 'left' ? -200 : 200;
+      navRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      triggerHaptic(5);
     }
   };
 
@@ -65,14 +127,18 @@ const App: React.FC = () => {
     setItemQuantity(1);
   };
 
-  const toggleAddon = (addon: { name: string, price: number }) => {
+  const updateAddonQty = (addon: { name: string, price: number }, delta: number) => {
     triggerHaptic(5);
-    const exists = selectedAddons.find(a => a.name === addon.name);
-    if (exists) {
-      setSelectedAddons(selectedAddons.filter(a => a.name !== addon.name));
-    } else {
-      setSelectedAddons([...selectedAddons, addon]);
-    }
+    setSelectedAddons(prev => {
+      const existing = prev.find(a => a.name === addon.name);
+      if (existing) {
+        const newQty = existing.quantity + delta;
+        if (newQty <= 0) return prev.filter(a => a.name !== addon.name);
+        return prev.map(a => a.name === addon.name ? { ...a, quantity: newQty } : a);
+      }
+      if (delta > 0) return [...prev, { ...addon, quantity: 1 }];
+      return prev;
+    });
   };
 
   const addToCart = () => {
@@ -104,14 +170,14 @@ const App: React.FC = () => {
 
   const calculateTotal = () => {
     return cart.reduce((total, item) => {
-      const addonsPrice = item.addons.reduce((sum, a) => sum + a.price, 0);
+      const addonsPrice = item.addons.reduce((sum, a) => sum + (a.price * a.quantity), 0);
       return total + (item.price + addonsPrice) * item.quantity;
     }, 0);
   };
 
   const sendOrderToWhatsApp = () => {
     if (!customerName || !customerPhone || !customerAddress) {
-      alert("⚠️ يرجى إدخال (الاسم، رقم الموبايل، والعنوان) للمتابعة.");
+      alert("⚠️ يرجى إدخال البيانات كاملة للمتابعة.");
       return;
     }
 
@@ -120,42 +186,34 @@ const App: React.FC = () => {
 
     const total = calculateTotal();
     const orderId = Math.floor(Math.random() * 90000) + 10000;
-    const time = new Date().toLocaleTimeString('ar-EG');
-    
-    // إنشاء كود حماية (Security Hash) لمنع المستخدم من تعديل الأسعار
     const securityHash = btoa(`${total}-${orderId}`).substring(0, 8).toUpperCase();
 
     let message = `🔴 *[نظام طلبات أطياب الآلي]*\n`;
-    message += `⚠️ *تنبيه: أي تعديل يدوي في هذه الرسالة سيعطل استلام الطلب*\n`;
+    message += `⚠️ *تنبيه: أي تعديل في الرسالة سيؤدي لإلغاء الطلب*\n`;
     message += `━━━━━━━━━━━━━━\n`;
     message += `🔢 *كود الأمان:* ${securityHash}\n`;
     message += `🔢 *أوردر رقم:* #${orderId}\n`;
     message += `👤 *العميل:* ${customerName}\n`;
-    message += `📞 *الموبايل:* ${customerPhone}\n`;
     message += `📍 *العنوان:* ${customerAddress}\n`;
     message += `━━━━━━━━━━━━━━\n\n`;
-    message += `🧾 *قائمة المشتريات:*\n`;
 
     cart.forEach((item, idx) => {
-      const singleTotal = (item.price + item.addons.reduce((s, a) => s + a.price, 0)) * item.quantity;
-      message += `${idx + 1}. *${item.name}* ${item.size ? `(${item.size})` : ''} x${item.quantity}\n`;
+      const singleItemAddonsPrice = item.addons.reduce((s, a) => s + (a.price * a.quantity), 0);
+      const singleRowTotal = (item.price + singleItemAddonsPrice) * item.quantity;
+      message += `${idx + 1}. *${item.name}* [${item.categoryName}] ${item.size ? `(${item.size})` : ''} x${item.quantity}\n`;
       if (item.addons.length > 0) {
-        message += `   ➕ إضافات: ${item.addons.map(a => `${a.name}`).join(' + ')}\n`;
+        message += `   ➕ إضافات: ${item.addons.map(a => `${a.quantity}x ${a.name} (+${a.price * a.quantity}ج)`).join(' + ')}\n`;
       }
       if (item.notes) message += `   📝 ملاحظة: ${item.notes}\n`;
-      message += `   💰 الفرعي: ${singleTotal} ج\n\n`;
+      message += `   💰 السعر: ${singleRowTotal} ج\n\n`;
     });
 
     message += `━━━━━━━━━━━━━━\n`;
     message += `💰 *الإجمالي النهائي: ${total} جنيه*\n`;
-    message += `⏰ *توقيت الإرسال:* ${time}\n`;
     message += `━━━━━━━━━━━━━━\n`;
     message += `✅ *[برجاء الضغط على إرسال مباشرة]*`;
 
-    // استخدام رابط التحويل المباشر مع تجاوز حماية المتصفحات
     const whatsappUrl = `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}`;
-    
-    // إنشاء رابط وهمي والضغط عليه برمجياً لضمان العمل على الموبايل
     const link = document.createElement('a');
     link.href = whatsappUrl;
     link.target = '_blank';
@@ -163,7 +221,6 @@ const App: React.FC = () => {
     link.click();
     document.body.removeChild(link);
 
-    // تنظيف الحالة بعد الإرسال
     setTimeout(() => {
       setIsSending(false);
       setIsCheckoutOpen(false);
@@ -171,307 +228,322 @@ const App: React.FC = () => {
     }, 2000);
   };
 
-  const handleNavClick = (e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    const target = document.getElementById(id);
-    if (target) {
-      const offsetPosition = target.getBoundingClientRect().top + window.pageYOffset - 180;
-      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
-      setActiveSection(id);
-      setShowCategoriesMenu(false);
-    }
-  };
-
-  const navItems = [...MENU_DATA.slice(0, 4), PIZZA_FATAYER_ADDITIONS, ...MENU_DATA.slice(4, 8), CREPE_ADDITIONS];
-  const mapsLink = "https://www.google.com/maps/search/R7XC+FC7+برج+أنس+الوجود";
-
-  const getRelevantAddons = () => {
+  const additionsGroup = (() => {
     if (!selectedItem) return null;
     const sectionId = selectedItem.section.id;
     if (['fatayer-savory', 'pizza-oriental', 'pizza-italian'].includes(sectionId)) return PIZZA_FATAYER_ADDITIONS;
     if (['crepe-savory', 'rolls', 'syrian'].includes(sectionId)) return CREPE_ADDITIONS;
     return null;
-  };
-
-  const additionsGroup = getRelevantAddons();
+  })();
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-[#050505] text-zinc-900 dark:text-zinc-200 antialiased selection:bg-yellow-500/30">
       <Header isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} onAction={() => triggerHaptic()} />
       
-      {/* Category Nav Bar */}
-      <nav className="sticky top-0 z-40 bg-white/95 dark:bg-[#050505]/95 backdrop-blur-xl border-b border-zinc-200 dark:border-white/10 py-3 shadow-md">
-        <div className="flex gap-2 overflow-x-auto no-scrollbar px-5 py-1 max-w-2xl mx-auto">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={(e) => handleNavClick(e, item.id)}
-              className={`whitespace-nowrap px-4 py-2 rounded-2xl text-[12px] font-black border transition-all ${
-                activeSection === item.id 
-                ? 'bg-yellow-600 text-black border-yellow-500 scale-105 shadow-lg shadow-yellow-600/20' 
-                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 text-zinc-500 hover:border-yellow-500/30'
-              }`}
-            >
-              <span className="animate-emoji">{(item as any).emoji || '✨'}</span> {item.title}
-            </button>
-          ))}
+      <nav className="sticky top-0 z-40 bg-white/95 dark:bg-[#050505]/95 backdrop-blur-xl border-b border-zinc-200 dark:border-white/10 shadow-sm">
+        <div className="max-w-2xl mx-auto relative flex items-center group">
+          <button onClick={() => scrollNav('right')} className="absolute right-0 z-10 w-10 h-full bg-gradient-to-l from-white dark:from-[#050505] to-transparent flex items-center justify-center text-zinc-400 active:text-yellow-600 transition-all">
+            <span className="text-xl rotate-180">‹</span>
+          </button>
+          <div ref={navRef} className="flex gap-2 overflow-x-auto no-scrollbar px-10 py-4 scroll-smooth">
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                data-section-id={item.id}
+                onClick={(e) => handleNavClick(e, item.id)}
+                className={`whitespace-nowrap px-4 py-2 rounded-2xl text-[12px] font-black border transition-all duration-300 ${
+                  activeSection === item.id 
+                  ? 'bg-yellow-600 text-black border-yellow-500 scale-105 shadow-lg shadow-yellow-600/20' 
+                  : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 text-zinc-500 hover:border-yellow-500/30'
+                }`}
+              >
+                <span className="animate-emoji">{(item as any).emoji || '✨'}</span> {item.title}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => scrollNav('left')} className="absolute left-0 z-10 w-10 h-full bg-gradient-to-r from-white dark:from-[#050505] to-transparent flex items-center justify-center text-zinc-400 active:text-yellow-600 transition-all">
+            <span className="text-xl">‹</span>
+          </button>
         </div>
       </nav>
 
       <main className="max-w-2xl mx-auto px-5 py-8 pb-48">
-        {/* Hero Card */}
-        <div className="mb-12 rounded-[2.5rem] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 p-10 relative overflow-hidden text-right shadow-2xl reveal-item">
+        <div className="mb-8 rounded-[1.5rem] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 p-6 relative overflow-hidden text-right shadow-md reveal-item">
           <div className="relative z-10">
-            <h2 className="text-5xl font-black text-zinc-900 dark:text-white mb-2 leading-none italic uppercase tracking-tighter">ATYAB</h2>
-            <p className="text-yellow-600 dark:text-yellow-500 text-sm font-black uppercase mb-4 tracking-widest">فطاطري أطياب</p>
-            <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500 text-[10px] font-bold">
+            <h2 className="text-3xl font-black text-zinc-900 dark:text-white mb-1 leading-none italic uppercase tracking-tighter">ATYAB</h2>
+            <p className="text-yellow-600 dark:text-yellow-500 text-[10px] font-black uppercase mb-2 tracking-widest">فطاطري أطياب</p>
+            <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500 text-[9px] font-bold">
               <span>📍 البدرشين - برج أنس الوجود</span>
             </div>
           </div>
-          <div className="absolute -left-10 -bottom-12 text-[180px] opacity-[0.04] grayscale rotate-12 animate-emoji">🥨</div>
+          <div className="absolute -left-4 -bottom-4 text-[80px] opacity-[0.03] rotate-12 animate-emoji">🥨</div>
         </div>
 
-        {MENU_DATA.map((section, idx) => (
-          <React.Fragment key={section.id}>
-            <MenuSection 
-              section={section} 
-              onItemSelect={(item, sec) => {
-                triggerHaptic();
-                setSelectedItem({ item, section: sec });
-                resetItemStates();
-              }} 
-            />
-            {idx === 3 && (
-               <div id={PIZZA_FATAYER_ADDITIONS.id} className="scroll-mt-[200px] mb-10 p-8 bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-zinc-200 dark:border-white/10 text-right reveal-item shadow-sm">
-                 <h3 className="text-2xl font-black mb-4 flex items-center gap-3">
-                   <span className="animate-emoji">✨</span> {PIZZA_FATAYER_ADDITIONS.title}
-                 </h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {PIZZA_FATAYER_ADDITIONS.items.map((add, i) => (
-                      <div key={i} className="flex justify-between items-center bg-zinc-50 dark:bg-white/5 p-4 rounded-2xl">
-                        <span className="text-yellow-600 font-black tabular-nums">{add.prices[0]} ج</span>
-                        <span className="font-bold text-sm">{add.name}</span>
-                      </div>
-                    ))}
-                 </div>
-               </div>
-            )}
-          </React.Fragment>
+        {MENU_DATA.map((section) => (
+          <MenuSection key={section.id} section={section} onItemSelect={(item, sec) => { triggerHaptic(); setSelectedItem({ item, section: sec }); resetItemStates(); }} />
         ))}
 
-        <footer className="mt-24 pb-12 flex flex-col items-center gap-8 reveal-item">
-            <div className="w-full bg-white dark:bg-zinc-900 rounded-[3rem] p-12 shadow-2xl border border-zinc-200 dark:border-white/10 flex flex-col items-center gap-8 text-center">
+        <footer className="mt-16 pb-12 flex flex-col items-center gap-6 reveal-item">
+            <div className="w-full bg-white dark:bg-zinc-900 rounded-[2rem] p-8 shadow-lg border border-zinc-200 dark:border-white/10 flex flex-col items-center gap-5 text-center">
                <AtyabLogo />
-               <div className="relative p-6 bg-white rounded-[2.5rem] border-4 border-zinc-100 shadow-inner">
-                  <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(currentUrl)}`} alt="QR Code" className="w-44 h-44" />
+               <div className="relative p-3 bg-white rounded-2xl border-2 border-zinc-100 shadow-inner">
+                  <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(currentUrl)}`} alt="QR Code" className="w-24 h-24" />
                </div>
-               <p className="text-[11px] text-zinc-400 font-black">امسح الكود لمشاركة المنيو</p>
             </div>
-            <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="w-full bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 shadow-xl border border-zinc-200 dark:border-white/10 text-right">
-               <div className="flex items-start gap-6">
-                 <div className="w-16 h-16 bg-yellow-50 dark:bg-yellow-900/20 rounded-3xl flex items-center justify-center text-3xl animate-emoji">📍</div>
-                 <div className="flex flex-col pt-1">
-                    <span className="text-[11px] font-black text-yellow-600 uppercase mb-1">موقعنا</span>
-                    <p className="text-zinc-800 dark:text-zinc-100 text-base font-black">البدرشين - برج أنس الوجود</p>
-                 </div>
-               </div>
-            </a>
         </footer>
       </main>
 
-      {/* Item Selection Modal */}
+      {/* Item Selection Modal (Optimized & Compact) */}
       {selectedItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-md p-8" onClick={() => setSelectedItem(null)}>
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-[2.5rem] p-6 shadow-2xl animate-slide-up overflow-y-auto max-h-[85vh]" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-6 text-right">
-              <button onClick={() => setSelectedItem(null)} className="w-11 h-11 bg-red-500 text-white rounded-full font-black text-xl shadow-lg">✕</button>
-              <div>
-                <h3 className="text-2xl font-black mb-1">{selectedItem.item.name}</h3>
-                <span className="bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 px-3 py-1 rounded-full text-[10px] font-black">{selectedItem.section.title}</span>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4" onClick={() => setSelectedItem(null)}>
+          <div className="w-full max-w-[340px] bg-white dark:bg-zinc-900 rounded-[2rem] overflow-hidden shadow-2xl animate-slide-up border border-white/10 flex flex-col max-h-[82vh]" onClick={e => e.stopPropagation()}>
+            
+            {/* Header - Compact */}
+            <div className="relative px-6 pt-7 pb-4 border-b border-zinc-100 dark:border-white/5 text-right">
+              <button onClick={() => setSelectedItem(null)} className="absolute left-6 top-7 w-8 h-8 bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white rounded-full font-black text-sm transition-all active:scale-90 flex items-center justify-center shadow-sm">✕</button>
+              <div className="space-y-0.5">
+                <span className="text-yellow-600 text-[8px] font-black uppercase tracking-widest">{selectedItem.section.title}</span>
+                <h3 className="text-xl font-black text-zinc-900 dark:text-white leading-tight italic uppercase">{selectedItem.item.name}</h3>
               </div>
             </div>
 
-            {selectedItem.item.prices.length > 1 && (
-              <div className="mb-6">
-                <p className="text-right font-black mb-3 text-sm text-zinc-400">اختر الحجم:</p>
-                <div className="flex gap-3 flex-row-reverse">
-                  {selectedItem.item.prices.map((p, i) => (
-                    <button 
-                      key={i} 
-                      onClick={() => { triggerHaptic(); setSelectedSizeIdx(i); }}
-                      className={`flex-1 py-4 rounded-xl font-black text-sm border-2 transition-all flex flex-col items-center ${selectedSizeIdx === i ? 'bg-yellow-600 border-yellow-600 text-black shadow-lg shadow-yellow-600/20' : 'bg-zinc-50 dark:bg-white/5 border-zinc-100 dark:border-white/5 text-zinc-500'}`}
-                    >
-                      <span className="opacity-60 text-[10px]">{selectedItem.item.labels?.[i] || selectedItem.section.subtitles?.[i]}</span>
-                      <span className="text-lg tabular-nums">{p} ج</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {additionsGroup && (
-              <div className="mb-6">
-                <p className="text-right font-black mb-3 text-sm text-zinc-400">إضافات مميزة:</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {additionsGroup.items.map((add, i) => {
-                    const price = parseInt(add.prices[0]) || 0;
-                    const isActive = selectedAddons.some(a => a.name === add.name);
-                    return (
-                      <button key={i} onClick={() => toggleAddon({ name: add.name, price })}
-                        className={`p-3 rounded-xl border-2 text-right transition-all flex flex-col ${isActive ? 'bg-yellow-600/10 border-yellow-600 text-yellow-600' : 'bg-zinc-50 dark:bg-white/5 border-zinc-100 dark:border-white/5 text-zinc-400'}`}
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-7 no-scrollbar">
+              {/* Sizes */}
+              {selectedItem.item.prices.length > 1 && (
+                <div className="space-y-3">
+                  <p className="font-black text-[9px] text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 flex-row-reverse"><span>📐</span> حدد الحجم</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectedItem.item.prices.map((p, i) => (
+                      <button key={i} onClick={() => { triggerHaptic(); setSelectedSizeIdx(i); }}
+                        className={`py-3 px-2 rounded-xl font-black border-2 transition-all flex flex-col items-center gap-0.5 ${selectedSizeIdx === i ? 'bg-yellow-600 border-yellow-600 text-black shadow-md shadow-yellow-600/20' : 'bg-zinc-50 dark:bg-white/[0.03] border-zinc-100 dark:border-white/5 text-zinc-500'}`}
                       >
-                        <span className="text-[12px] font-black">{add.name}</span>
-                        <span className="text-[10px] tabular-nums opacity-60">+{price} ج</span>
+                        <span className="opacity-60 text-[7px] font-black uppercase">{selectedItem.item.labels?.[i] || selectedItem.section.subtitles?.[i]}</span>
+                        <span className="text-lg tabular-nums leading-none font-black">{p}<span className="text-[9px] mr-1">ج</span></span>
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <div className="mb-6">
-              <textarea value={itemNotes} onChange={e => setItemNotes(e.target.value)} placeholder="ملاحظاتك (بدون بصل، صوص زيادة...)"
-                className="w-full bg-zinc-50 dark:bg-white/5 border-2 border-zinc-100 dark:border-white/5 rounded-xl p-4 text-right font-bold text-sm h-20 outline-none focus:border-yellow-600"
-              />
+              {/* Add-ons with Quantity Counter */}
+              {additionsGroup && (
+                <div className="space-y-3">
+                  <p className="font-black text-[9px] text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 flex-row-reverse"><span>✨</span> الإضافات</p>
+                  <div className="flex flex-col gap-2">
+                    {additionsGroup.items.map((add, i) => {
+                      const price = parseInt(add.prices[0]) || 0;
+                      const currentAddon = selectedAddons.find(a => a.name === add.name);
+                      const qty = currentAddon?.quantity || 0;
+                      return (
+                        <div key={i} className={`p-2.5 rounded-xl border-2 flex items-center justify-between transition-all ${qty > 0 ? 'bg-yellow-600/10 border-yellow-600/40 text-yellow-700 dark:text-yellow-500' : 'bg-zinc-50 dark:bg-white/[0.02] border-zinc-100 dark:border-white/5 text-zinc-500'}`}>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => updateAddonQty({ name: add.name, price }, 1)} className="w-7 h-7 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 rounded-lg flex items-center justify-center font-black text-lg active:scale-90 shadow-sm">+</button>
+                            <span className={`min-w-[18px] text-center tabular-nums font-black text-sm ${qty > 0 ? 'opacity-100' : 'opacity-20'}`}>{qty}</span>
+                            <button onClick={() => updateAddonQty({ name: add.name, price }, -1)} className="w-7 h-7 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 rounded-lg flex items-center justify-center font-black text-lg active:scale-90 shadow-sm">-</button>
+                          </div>
+                          <div className="text-right flex-1 pr-3">
+                            <span className="text-[11px] font-black leading-tight block">{add.name}</span>
+                            <span className="text-[8px] font-bold opacity-60">+{price}ج / الحبة</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              <div className="space-y-3">
+                <p className="font-black text-[9px] text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 flex-row-reverse"><span>📝</span> الملاحظات</p>
+                <textarea value={itemNotes} onChange={e => setItemNotes(e.target.value)} placeholder="مثلاً: حار زيادة..."
+                  className="w-full bg-zinc-50 dark:bg-white/[0.03] border-2 border-zinc-100 dark:border-white/5 rounded-xl p-4 text-right font-bold text-[11px] h-20 outline-none focus:border-yellow-600 transition-all resize-none shadow-inner"
+                />
+              </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-xl p-2 gap-4">
-                <button onClick={() => { triggerHaptic(); setItemQuantity(q => q + 1); }} className="w-10 h-10 bg-white dark:bg-zinc-700 rounded-lg font-black text-2xl shadow-sm">+</button>
-                <span className="font-black text-xl min-w-[30px] text-center">{itemQuantity}</span>
-                <button onClick={() => { triggerHaptic(); setItemQuantity(q => Math.max(1, q - 1)); }} className="w-10 h-10 bg-white dark:bg-zinc-700 rounded-lg font-black text-2xl shadow-sm">-</button>
+            {/* Bottom Footer - Compact */}
+            <div className="p-5 bg-zinc-50 dark:bg-white/[0.05] border-t border-zinc-100 dark:border-white/5">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center bg-white dark:bg-zinc-800 rounded-lg p-0.5 gap-1.5 border border-zinc-100 dark:border-white/10 shadow-sm">
+                  <button onClick={() => { triggerHaptic(); setItemQuantity(q => q + 1); }} className="w-8 h-8 bg-zinc-50 dark:bg-zinc-700 rounded-md font-black text-lg active:scale-90 shadow-sm">+</button>
+                  <span className="font-black text-xl min-w-[24px] text-center tabular-nums text-zinc-900 dark:text-white leading-none">{itemQuantity}</span>
+                  <button onClick={() => { triggerHaptic(); setItemQuantity(q => Math.max(1, q - 1)); }} className="w-8 h-8 bg-zinc-50 dark:bg-zinc-700 rounded-md font-black text-lg active:scale-90 shadow-sm">-</button>
+                </div>
+                <button onClick={addToCart} className="flex-1 bg-yellow-600 hover:bg-yellow-500 text-black font-black py-3 rounded-lg text-base shadow-md active:scale-[0.97] transition-all">
+                  إضافة
+                </button>
               </div>
-              <button onClick={addToCart} className="flex-1 bg-yellow-600 text-black font-black py-4 rounded-xl text-lg shadow-xl active:scale-95">إضافة للسلة</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Checkout Modal */}
+      {/* Checkout Modal (Receipt View) */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/85 backdrop-blur-xl p-8" onClick={() => setIsCheckoutOpen(false)}>
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-[2.5rem] p-6 shadow-2xl animate-slide-up relative max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-6 text-right">
-              <button onClick={() => setIsCheckoutOpen(false)} className="w-11 h-11 bg-red-500 text-white rounded-full font-black text-xl shadow-lg">✕</button>
-              <div>
-                <h3 className="text-3xl font-black mb-1">تأكيد الأوردر</h3>
-                <p className="text-zinc-400 text-xs font-bold">يرجى مراجعة البيانات بعناية</p>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-lg p-4" onClick={() => setIsCheckoutOpen(false)}>
+          <div className="w-full max-w-[340px] bg-white dark:bg-zinc-900 rounded-[2rem] overflow-hidden shadow-2xl animate-slide-up relative flex flex-col max-h-[85vh] border border-white/10" onClick={e => e.stopPropagation()}>
+            
+            {/* Header - Invoice */}
+            <div className="p-6 pb-3 border-b-2 border-dashed border-zinc-100 dark:border-white/5 text-right flex justify-between items-center flex-row-reverse relative">
+              <div className="flex flex-col">
+                <h3 className="text-xl font-black text-zinc-900 dark:text-white italic tracking-tighter uppercase leading-none">ORDER</h3>
+                <p className="text-yellow-600 text-[9px] font-black uppercase tracking-[0.3em] mt-0.5">تأكيد طلب أطياب</p>
               </div>
+              <button onClick={() => setIsCheckoutOpen(false)} className="w-8 h-8 bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white rounded-full font-black text-sm active:scale-90 transition-all flex items-center justify-center shadow-md">✕</button>
             </div>
 
-            <div className="space-y-6">
+            <div className="flex-1 overflow-y-auto p-6 space-y-7 no-scrollbar">
+              {/* Customer Form */}
               <div className="space-y-3">
-                <input type="text" placeholder="الاسم بالكامل" value={customerName} onChange={e => setCustomerName(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-white/5 border-2 border-zinc-100 dark:border-white/5 rounded-xl p-4 text-right font-bold text-base outline-none focus:border-yellow-600"
-                />
-                <input type="tel" placeholder="رقم الموبايل" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-white/5 border-2 border-zinc-100 dark:border-white/5 rounded-xl p-4 text-right font-bold text-base outline-none focus:border-yellow-600 tabular-nums"
-                />
-                <textarea placeholder="العنوان بالتفصيل" value={customerAddress} onChange={e => setCustomerAddress(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-white/5 border-2 border-zinc-100 dark:border-white/5 rounded-xl p-4 text-right font-bold text-base outline-none focus:border-yellow-600 h-24"
-                />
+                <p className="font-black text-[8px] text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 flex-row-reverse mb-0.5"><span>🛵</span> العنوان</p>
+                <div className="space-y-2">
+                  <input type="text" placeholder="الاسم" value={customerName} onChange={e => setCustomerName(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-white/[0.03] border-2 border-zinc-100 dark:border-white/5 rounded-xl py-2.5 px-4 text-right font-bold text-xs outline-none focus:border-yellow-600 transition-all shadow-sm"
+                  />
+                  <input type="tel" placeholder="رقم الموبايل" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-white/[0.03] border-2 border-zinc-100 dark:border-white/5 rounded-xl py-2.5 px-4 text-right font-bold text-xs outline-none focus:border-yellow-600 transition-all shadow-sm"
+                  />
+                  <textarea placeholder="العنوان بالتحديد..." value={customerAddress} onChange={e => setCustomerAddress(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-white/[0.03] border-2 border-zinc-100 dark:border-white/5 rounded-xl py-2.5 px-4 text-right font-bold text-xs outline-none focus:border-yellow-600 h-16 transition-all shadow-sm resize-none"
+                  />
+                </div>
               </div>
 
-              <div className="bg-zinc-50 dark:bg-white/5 rounded-3xl p-5 border border-zinc-200 dark:border-white/10">
-                <p className="text-right font-black text-xs text-zinc-400 mb-4 uppercase">محتويات الأوردر:</p>
-                <div className="space-y-3 max-h-48 overflow-y-auto no-scrollbar">
-                  {cart.map(item => (
-                    <div key={item.id} className="flex flex-col py-3 border-b border-zinc-100 dark:border-white/5 last:border-0">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                          <button onClick={() => removeFromCart(item.id)} className="w-7 h-7 bg-red-100 dark:bg-red-900/40 text-red-600 rounded-lg text-xs">✕</button>
-                          <span className="font-black text-base">{(item.price + item.addons.reduce((s,a)=>s+a.price,0)) * item.quantity}ج</span>
+              {/* Basket Items List */}
+              <div className="bg-zinc-50 dark:bg-white/[0.03] rounded-[1.5rem] p-5 border-2 border-dashed border-zinc-200 dark:border-white/10 relative shadow-inner">
+                <div className="flex justify-between items-center mb-5 flex-row-reverse border-b border-zinc-200 dark:border-white/10 pb-3">
+                   <p className="font-black text-[9px] text-zinc-400 uppercase tracking-widest">السلة</p>
+                   <span className="text-lg">📋</span>
+                </div>
+                
+                <div className="space-y-6">
+                  {cart.map((item) => (
+                    <div key={item.id} className="flex flex-col gap-2 relative border-b last:border-0 border-zinc-100 dark:border-white/5 pb-4 last:pb-0">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => removeFromCart(item.id)} className="w-6 h-6 bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white rounded-md text-[8px] transition-all flex items-center justify-center">✕</button>
+                          <span className="font-black text-base tabular-nums text-yellow-600">
+                            {(item.price + item.addons.reduce((s,a)=>s+(a.price * a.quantity),0)) * item.quantity}ج
+                          </span>
                         </div>
-                        <div className="text-right">
-                          <p className="font-black text-sm">{item.name} x{item.quantity}</p>
-                          {item.size && <span className="text-[10px] text-zinc-400 font-bold">{item.size}</span>}
+                        <div className="text-right flex-1 pr-2">
+                           <span className="text-[7px] font-black uppercase bg-zinc-200 dark:bg-zinc-800 px-1 py-0.5 rounded w-fit mb-0.5">{item.categoryName}</span>
+                           <h4 className="font-black text-xs text-zinc-800 dark:text-zinc-100 leading-tight">
+                             {item.name} <span className="text-yellow-600 ml-1">x{item.quantity}</span>
+                           </h4>
+                           {item.size && <span className="text-[8px] text-zinc-400 font-bold block italic">{item.size}</span>}
                         </div>
                       </div>
-                      {item.addons.map((a, i) => (
-                        <span key={i} className="text-right text-[10px] text-yellow-600 font-bold mt-1">+ {a.name} ({a.price} ج)</span>
-                      ))}
+                      
+                      {/* Multi-Addon Display */}
+                      {item.addons.length > 0 && (
+                        <div className="flex flex-wrap justify-end gap-1 px-1">
+                          {item.addons.map((a, i) => (
+                            <span key={i} className="text-[7px] bg-yellow-500/10 text-yellow-700 dark:text-yellow-500/80 px-2 py-0.5 rounded-md font-black border border-yellow-500/10 flex items-center gap-1">
+                               <span>{a.quantity}x {a.name}</span>
+                               <span className="opacity-40">(+{a.price * a.quantity}ج)</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
-                <div className="mt-5 pt-4 border-t border-zinc-200 dark:border-white/10 flex justify-between items-center">
-                  <span className="text-2xl font-black text-yellow-600 tabular-nums">{calculateTotal()} جنيه</span>
-                  <span className="font-black text-lg">الإجمالي</span>
+
+                {/* Total Section */}
+                <div className="mt-6 pt-5 border-t-2 border-dotted border-zinc-200 dark:border-white/20">
+                  <div className="flex justify-between items-center flex-row-reverse">
+                    <span className="font-black text-zinc-900 dark:text-white text-sm tracking-tight">إجمالي الفاتورة</span>
+                    <div className="flex items-baseline gap-1">
+                       <span className="text-3xl font-black text-yellow-600 tabular-nums leading-none">{calculateTotal()}</span>
+                       <span className="text-sm font-black text-yellow-600/60">ج</span>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </div>
 
+            {/* Bottom Button */}
+            <div className="p-6 bg-white dark:bg-zinc-900 border-t-2 border-zinc-100 dark:border-white/5">
               <button 
                 disabled={isSending}
                 onClick={sendOrderToWhatsApp} 
-                className={`w-full ${isSending ? 'bg-zinc-400' : 'bg-[#25D366]'} text-white font-black py-5 rounded-[2rem] text-xl shadow-xl active:scale-95 flex items-center justify-center gap-4 transition-all`}
+                className={`w-full ${isSending ? 'bg-zinc-400' : 'bg-[#25D366] shadow-lg'} text-white font-black py-4 rounded-xl text-lg active:scale-[0.98] flex items-center justify-center gap-3 transition-all`}
               >
-                <span>{isSending ? 'جاري التحويل...' : 'إرسال الطلب (واتساب)'}</span>
-                {!isSending && <svg className="w-7 h-7 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" /></svg>}
+                <span>{isSending ? 'جاري التحويل...' : 'تأكيد عبر واتساب'}</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Floating Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-[60] px-4 pb-6 pt-2 md:hidden">
-        <div className="max-w-xl mx-auto glass border border-zinc-200 dark:border-white/10 rounded-[2.5rem] p-2 flex items-center justify-around shadow-2xl relative">
-          
+      {/* Floating Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 z-[60] px-4 pb-10 pt-2 md:hidden">
+        <div className="max-w-xl mx-auto glass border border-zinc-200 dark:border-white/10 rounded-[2.5rem] p-1 flex items-center justify-around shadow-xl relative">
           {(showBottomCallMenu || showCategoriesMenu) && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-[4px] z-[61]" onClick={() => { setShowBottomCallMenu(false); setShowCategoriesMenu(false); }}></div>
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-[6px] z-[61]" onClick={() => { setShowBottomCallMenu(false); setShowCategoriesMenu(false); }}></div>
           )}
-
+          
+          {/* Cart Indicator */}
           {cart.length > 0 && !isCheckoutOpen && !selectedItem && (
             <button onClick={() => { triggerHaptic(); setIsCheckoutOpen(true); }}
-              className="absolute -top-16 left-0 right-0 mx-8 bg-zinc-900 dark:bg-white text-white dark:text-black py-5 px-8 rounded-full shadow-2xl flex justify-between items-center animate-slide-up border border-white/20"
+              className="absolute -top-14 left-3 right-3 bg-zinc-900 dark:bg-white text-white dark:text-black py-4 px-6 rounded-[1.5rem] shadow-xl flex justify-between items-center animate-slide-up border border-white/20 active:scale-95 transition-transform"
             >
-              <span className="font-black tabular-nums text-xl">{calculateTotal()} ج</span>
+              <div className="flex flex-col items-start">
+                 <span className="font-black tabular-nums text-lg leading-none">{calculateTotal()}ج</span>
+              </div>
               <div className="flex items-center gap-3">
-                <span className="font-black text-base">عرض السلة</span>
-                <span className="bg-yellow-600 text-black w-7 h-7 flex items-center justify-center rounded-full text-xs font-black">{cart.length}</span>
+                <span className="font-black text-xs uppercase tracking-tight">مراجعة الفاتورة</span>
+                <div className="bg-yellow-600 text-black w-6 h-6 flex items-center justify-center rounded-lg text-[10px] font-black">{cart.length}</div>
               </div>
             </button>
           )}
 
-          <a href={`https://wa.me/${WHATSAPP_NUMBER}`} className="flex-1 flex flex-col items-center py-2 text-[#25D366]">
-            <span className="text-2xl animate-emoji">💬</span>
-            <span className="text-[10px] font-black">واتساب</span>
+          <a href={`https://wa.me/${WHATSAPP_NUMBER}`} className="flex-1 flex flex-col items-center py-2 text-[#25D366] active:scale-90 transition-transform">
+            <span className="text-xl animate-emoji">💬</span>
+            <span className="text-[8px] font-black text-zinc-400 mt-0.5">واتساب</span>
           </a>
-          <button onClick={() => { setShowBottomCallMenu(!showBottomCallMenu); setShowCategoriesMenu(false); }} className={`flex-1 flex flex-col items-center py-2 ${showBottomCallMenu ? 'text-yellow-600' : 'text-zinc-500'}`}>
-            <span className="text-2xl animate-emoji">📞</span>
-            <span className="text-[10px] font-black">اتصال</span>
+          <button onClick={() => { setShowBottomCallMenu(!showBottomCallMenu); setShowCategoriesMenu(false); }} className={`flex-1 flex flex-col items-center py-2 active:scale-90 transition-all ${showBottomCallMenu ? 'text-yellow-600' : 'text-zinc-500'}`}>
+            <span className="text-xl animate-emoji">📞</span>
+            <span className="text-[8px] font-black text-zinc-400 mt-0.5">اتصال</span>
           </button>
-          
-          <button onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})} className="bg-yellow-600 w-16 h-16 rounded-full flex items-center justify-center text-black shadow-xl -mt-10 border-4 border-white dark:border-[#050505] active:scale-90 z-[63] yellow-glow">
-            <span className="text-xl animate-emoji">🔝</span>
+          <button onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})} className="bg-yellow-600 w-14 h-14 rounded-full flex items-center justify-center text-black shadow-lg -mt-10 border-4 border-white dark:border-[#050505] active:scale-90 z-[63] transition-all">
+            <span className="text-lg animate-emoji">🔝</span>
           </button>
-          
-          <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center py-2 text-zinc-500">
-            <span className="text-2xl animate-emoji">📍</span>
-            <span className="text-[10px] font-black">الموقع</span>
+          <a href={`https://www.google.com/maps/search/R7XC+FC7+برج+أنس+الوجود`} target="_blank" rel="noopener noreferrer" className="flex-1 flex flex-col items-center py-2 text-zinc-500 active:scale-90 transition-transform">
+            <span className="text-xl animate-emoji">📍</span>
+            <span className="text-[8px] font-black text-zinc-400 mt-0.5">الموقع</span>
           </a>
-          <button onClick={() => { setShowCategoriesMenu(!showCategoriesMenu); setShowBottomCallMenu(false); }} className={`flex-1 flex flex-col items-center py-2 ${showCategoriesMenu ? 'text-yellow-600' : 'text-zinc-500'}`}>
-            <span className="text-2xl animate-emoji">📋</span>
-            <span className="text-[10px] font-black">المنيو</span>
+          <button onClick={() => { setShowCategoriesMenu(!showCategoriesMenu); setShowBottomCallMenu(false); }} className={`flex-1 flex flex-col items-center py-2 active:scale-90 transition-all ${showCategoriesMenu ? 'text-yellow-600' : 'text-zinc-500'}`}>
+            <span className="text-xl animate-emoji">📋</span>
+            <span className="text-[8px] font-black text-zinc-400 mt-0.5">المنيو</span>
           </button>
 
-          {/* Popups */}
+          {/* Call Menu */}
           {showBottomCallMenu && (
-             <div className="absolute bottom-[calc(100%+1rem)] left-0 right-0 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up mx-2 z-[62]">
-               <div className="px-6 py-4 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 text-right font-black text-[10px] text-zinc-400">اتصل بنا للطلب</div>
+             <div className="absolute bottom-[calc(100%+1.5rem)] left-0 right-0 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-[2rem] shadow-2xl overflow-hidden animate-slide-up mx-2 z-[62]">
+               <div className="px-5 py-3 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 dark:border-white/5 text-right flex justify-between items-center flex-row-reverse">
+                  <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">تواصل</span>
+                  <span className="text-lg">📞</span>
+               </div>
                {[{n: "01044168230", l: "رقم 1"}, {n: "01124005181", l: "رقم 2"}].map((p, i) => (
-                 <a key={i} href={`tel:${p.n}`} className="flex items-center justify-between px-7 py-5 border-b last:border-0 border-zinc-100 dark:border-white/5 active:bg-yellow-50"><span className="text-[11px] font-black text-zinc-400">{p.l}</span><span className="text-[18px] font-black text-yellow-600 tracking-tighter">{p.n}</span></a>
+                 <a key={i} href={`tel:${p.n}`} className="flex items-center justify-between px-6 py-4 border-b last:border-0 border-zinc-100 dark:border-white/5 active:bg-yellow-50 transition-colors"><span className="text-[9px] font-black text-zinc-400">{p.l}</span><span className="text-base font-black tabular-nums text-yellow-600">{p.n}</span></a>
                ))}
              </div>
           )}
 
+          {/* Categories Menu */}
           {showCategoriesMenu && (
-            <div className="absolute bottom-[calc(100%+1rem)] left-0 right-0 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up mx-2 z-[62]">
-              <div className="px-6 py-4 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 text-right font-black text-[10px] text-zinc-400">انتقل للقسم</div>
-              <div className="max-h-[50vh] overflow-y-auto no-scrollbar">
+            <div className="absolute bottom-[calc(100%+1.5rem)] left-0 right-0 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-[2rem] shadow-2xl overflow-hidden animate-slide-up mx-2 z-[62]">
+              <div className="px-5 py-3 bg-zinc-50 dark:bg-white/5 border-b border-zinc-100 dark:border-white/5 text-right flex justify-between items-center flex-row-reverse">
+                <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">الأقسام</span>
+                <span className="text-lg">📋</span>
+              </div>
+              <div className="max-h-[45vh] overflow-y-auto no-scrollbar">
                 {navItems.map((item) => (
-                  <button key={item.id} onClick={(e) => handleNavClick(e, item.id)} className={`w-full flex items-center justify-between px-7 py-5 border-b last:border-0 border-zinc-100 dark:border-white/5 ${activeSection === item.id ? 'bg-yellow-50 dark:bg-yellow-500/5' : ''}`}>
-                    <span className="text-xl animate-emoji">{(item as any).emoji || '✨'}</span>
-                    <span className={`text-[15px] font-black ${activeSection === item.id ? 'text-yellow-600' : ''}`}>{item.title}</span>
+                  <button key={item.id} onClick={(e) => handleNavClick(e, item.id)} className={`w-full flex items-center justify-between px-6 py-4 border-b last:border-0 border-zinc-100 dark:border-white/5 transition-all text-right ${activeSection === item.id ? 'bg-yellow-50 dark:bg-yellow-500/5' : ''}`}>
+                    <span className="text-lg animate-emoji">{(item as any).emoji || '✨'}</span>
+                    <span className={`text-[13px] font-black ${activeSection === item.id ? 'text-yellow-600' : 'text-zinc-800 dark:text-zinc-200'}`}>{item.title}</span>
                   </button>
                 ))}
               </div>
